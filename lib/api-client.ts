@@ -39,9 +39,12 @@ import type {
   TicketPurchaseResponse,
 } from '@/types/api'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'
-
+import { getApiUrl } from './api-endpoints'
 import { logger } from './logger'
+
+//const API_URL = getApiUrl()
+const API_URL = process.env.NEXT_PUBLIC_API_URL
+console.log('API_URL', API_URL)
 
 /**
  * Fonction utilitaire pour gérer les tokens
@@ -145,9 +148,22 @@ async function apiRequest<T>(
 }
 
 /**
- * Client API avec toutes les méthodes
+ * Client API avec toutes les méthodes (aligné sur les routes backend)
  */
 export const apiClient = {
+  // ============================================
+  // APP (health, root)
+  // ============================================
+  app: {
+    health: async (): Promise<{ status?: string }> => {
+      return apiRequest<{ status?: string }>('/health')
+    },
+
+    root: async (): Promise<{ name?: string; description?: string }> => {
+      return apiRequest('/')
+    },
+  },
+
   // ============================================
   // AUTHENTIFICATION
   // ============================================
@@ -297,6 +313,12 @@ export const apiClient = {
   // DASHBOARD
   // ============================================
   dashboard: {
+    /** Stats pour l'utilisateur connecté (mon dashboard) */
+    getMyStats: async (): Promise<DashboardStats> => {
+      return apiRequest<DashboardStats>('/dashboard/my-stats')
+    },
+
+    /** Stats globales (admin/agent) */
     getStats: async (): Promise<DashboardStats> => {
       return apiRequest<DashboardStats>('/dashboard/stats')
     },
@@ -396,6 +418,10 @@ export const apiClient = {
       return apiRequest<TicketType[]>('/tickets/types')
     },
 
+    getTypeById: async (typeId: string): Promise<TicketType> => {
+      return apiRequest<TicketType>(`/tickets/types/${typeId}`)
+    },
+
     getByType: async (typeId: string): Promise<Ticket[]> => {
       return apiRequest<Ticket[]>(`/tickets/type/${typeId}`)
     },
@@ -429,16 +455,22 @@ export const apiClient = {
   // ============================================
   admin: {
     tickets: {
-      import: async (file: File): Promise<{ imported: number; failed: number; errors: string[] }> => {
+      import: async (
+        file: File,
+        defaultPrice?: number
+      ): Promise<{ imported: number; failed: number; errors: string[] }> => {
         const token = getToken()
         const formData = new FormData()
         formData.append('file', file)
-        
-        const response = await fetch(`${API_URL}/admin/tickets/import`, {
+        if (defaultPrice != null) {
+          formData.append('defaultPrice', String(defaultPrice))
+        }
+        console.log(`${API_URL}/tickets/admin/import`)
+
+        const response = await fetch(`${API_URL}/tickets/admin/import`, {
           method: 'POST',
           body: formData,
           headers: {
-            // Ne pas mettre Content-Type, le navigateur le fera automatiquement avec le boundary
             ...(token && { Authorization: `Bearer ${token}` }),
           },
         })
@@ -465,6 +497,19 @@ export const apiClient = {
         revenue: number
       }> => {
         return apiRequest('/admin/tickets/stats')
+      },
+
+      updatePrice: async (ticketId: string, price: number): Promise<Ticket> => {
+        return apiRequest<Ticket>(`/admin/tickets/${ticketId}/price`, {
+          method: 'PUT',
+          body: JSON.stringify({ price }),
+        })
+      },
+
+      delete: async (ticketId: string): Promise<{ message?: string }> => {
+        return apiRequest<{ message?: string }>(`/admin/tickets/${ticketId}`, {
+          method: 'DELETE',
+        })
       },
     },
   },

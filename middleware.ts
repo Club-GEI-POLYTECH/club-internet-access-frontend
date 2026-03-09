@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
 
   console.log(`${LOG_PREFIX} requête`, { pathname, isHttps })
 
-  const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/buy-ticket', '/home']
+  const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/home']
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
   if (isPublicRoute) {
@@ -41,7 +41,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - .well-known (Chrome DevTools, ACME, etc.)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico).*)',
+    '/((?!api|_next/static|_next/image|favicon.ico|\\.well-known).*)',
   ],
 }

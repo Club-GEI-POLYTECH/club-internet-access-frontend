@@ -8,6 +8,7 @@ import { logger } from '@/lib/logger'
 import type { Ticket, TicketType, TicketPurchaseRequest, TicketPurchaseResponse } from '@/types/api'
 import { PaymentMethod } from '@/types/api'
 import toast from 'react-hot-toast'
+import { useAuth } from '@/contexts/AuthContext'
 
 /**
  * Page publique de vente de tickets Wi-Fi
@@ -24,8 +25,20 @@ export default function BuyTicketPage() {
   const [purchasing, setPurchasing] = useState(false)
   const [purchaseResult, setPurchaseResult] = useState<TicketPurchaseResponse | null>(null)
   const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
 
   useEffect(() => {
+    if (authLoading) return
+
+    if (!user) {
+      logger.log('BuyTicket: utilisateur non authentifié, redirection vers /login')
+      const search = typeof window !== 'undefined' ? window.location.search : ''
+      const redirectTo = `/buy-ticket${search || ''}`
+      const encoded = encodeURIComponent(redirectTo)
+      router.replace(`/login?redirectTo=${encoded}`)
+      return
+    }
+
     const params = new URLSearchParams(window.location.search)
     const typeId = params.get('type')
     logger.log('BuyTicket: chargement', { typeId: typeId ?? 'tous' })
@@ -34,7 +47,7 @@ export default function BuyTicketPage() {
     } else {
       loadAvailableTickets()
     }
-  }, [])
+  }, [user, authLoading, router])
 
   const loadTicketType = async (typeId: string) => {
     logger.log('BuyTicket: chargement type', { typeId })
@@ -127,6 +140,14 @@ export default function BuyTicketPage() {
   const formatLimit = (limit?: string) => {
     if (!limit) return 'Illimité'
     return limit
+  }
+
+  if (authLoading || (!user && typeof window !== 'undefined')) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-700 px-4 py-12">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white" />
+      </div>
+    )
   }
 
   if (purchaseResult) {

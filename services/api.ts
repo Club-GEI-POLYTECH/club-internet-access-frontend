@@ -1,9 +1,10 @@
 // Service API utilisant axios (compatible avec le code existant)
 import axios from 'axios'
 import { getToken, removeToken } from '@/lib/auth'
+import { getApiUrl } from '@/lib/api-endpoints'
 import { logger } from '@/lib/logger'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api'
+const API_URL = getApiUrl()
 
 const api = axios.create({
   baseURL: API_URL,

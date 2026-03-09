@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
@@ -14,10 +14,12 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const { login, user } = useAuth()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const redirectTo = searchParams.get('redirectTo')
 
   // Vérifier si l'utilisateur est déjà authentifié
   useEffect(() => {
-    if (user && typeof window !== 'undefined' && window.location.protocol === 'http:') {
+    if (user && typeof window !== 'undefined' && window.location.protocol === 'http:' && process.env.NODE_ENV === 'production') {
       logger.info('Login: utilisateur déjà connecté en HTTP, redirection HTTPS')
       const httpsUrl = window.location.href.replace('http://', 'https://').replace('/login', '/')
       window.location.href = httpsUrl
@@ -34,11 +36,11 @@ export default function Login() {
       toast.success('Connexion réussie!')
       logger.info('Login: connexion réussie, redirection')
 
-      if (typeof window !== 'undefined' && window.location.protocol === 'http:') {
+      if (typeof window !== 'undefined' && window.location.protocol === 'http:' && process.env.NODE_ENV === 'production') {
         const httpsUrl = window.location.href.replace('http://', 'https://')
         window.location.href = httpsUrl.replace('/login', '/')
       } else {
-        router.push('/')
+        router.push(redirectTo || '/')
       }
     } catch (error: any) {
       logger.error('Login: échec connexion', error)
@@ -112,11 +114,18 @@ export default function Login() {
           </div>
 
           <div className="mt-4 text-center text-sm text-gray-500">
-            <p>Accès réservé au personnel autorisé</p>
+            <p>
+              Pas encore de compte ?{' '}
+              <Link
+                href={redirectTo ? `/register?redirectTo=${encodeURIComponent(redirectTo)}` : '/register'}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Créer un compte
+              </Link>
+            </p>
           </div>
         </div>
       </div>
     </div>
   )
 }
-

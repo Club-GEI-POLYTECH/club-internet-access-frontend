@@ -7,6 +7,7 @@ import { apiClient } from '@/lib/api-client'
 import { logger } from '@/lib/logger'
 import type { TicketType } from '@/types/api'
 import toast from 'react-hot-toast'
+import { useAuth } from '@/contexts/AuthContext'
 
 /**
  * Page d'accueil publique - Liste des types de tickets disponibles
@@ -18,6 +19,7 @@ export default function HomePage() {
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([])
   const [loading, setLoading] = useState(true)
   const router = useRouter()
+  const { user } = useAuth()
 
   useEffect(() => {
     loadTicketTypes()
@@ -53,7 +55,15 @@ export default function HomePage() {
 
   const handleBuyTicket = (typeId: string) => {
     logger.log('Home: achat ticket, type sélectionné', { typeId })
-    router.push(`/buy-ticket?type=${typeId}`)
+    const target = `/buy-ticket?type=${typeId}`
+
+    if (!user) {
+      const redirectTo = encodeURIComponent(target)
+      router.push(`/login?redirectTo=${redirectTo}`)
+      return
+    }
+
+    router.push(target)
   }
 
   return (
@@ -169,7 +179,7 @@ export default function HomePage() {
         {/* Footer */}
         <div className="mt-16 text-center opacity-0 animate-fade-in [animation-fill-mode:forwards] [animation-delay:600ms]">
           <p className="text-white text-opacity-75 text-sm">
-            Besoin d'aide ? Contactez-nous à support@clubgei-polytech.org
+            Besoin d'aide ? Contactez-nous à president@clubgei-polytech.org
           </p>
         </div>
       </div>

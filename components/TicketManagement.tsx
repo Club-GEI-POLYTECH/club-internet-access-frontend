@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Download } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { logger } from '@/lib/logger'
@@ -18,6 +18,10 @@ export default function TicketManagement() {
     errors: string[]
   } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    logger.log('TicketManagement: montage du composant')
+  }, [])
 
   const processFile = async (file: File) => {
     logger.log('TicketManagement: fichier reçu', { name: file.name, size: file.size })
@@ -55,12 +59,15 @@ export default function TicketManagement() {
     if (file) {
       logger.log('TicketManagement: sélection fichier', { name: file.name })
       processFile(file)
+    } else {
+      logger.warn('TicketManagement: aucun fichier sélectionné')
     }
   }
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
     e.stopPropagation()
+    logger.log('TicketManagement: drag over sur la zone de dépôt')
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -92,6 +99,7 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
     document.body.appendChild(link)
     link.click()
     document.body.removeChild(link)
+    logger.info('TicketManagement: template CSV téléchargé')
   }
 
   return (
