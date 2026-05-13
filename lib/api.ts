@@ -1,6 +1,7 @@
 // Fonction principale pour les appels API
 import { getToken, removeToken } from './auth'
 import { getApiUrl } from './api-endpoints'
+import { formatApiConnectionError, isLikelyNetworkOrBackendDown } from './api-errors'
 
 const API_URL = getApiUrl()
 
@@ -19,20 +20,26 @@ export async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = getToken()
+  const url = `${API_URL}${endpoint}`
 
+  let response: Response
   try {
-    const response = await fetch(`${API_URL}${endpoint}`, {
+    response = await fetch(url, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
         ...(token && { Authorization: `Bearer ${token}` }),
         ...options.headers,
       },
-      ...(options.body && typeof options.body === 'object' 
+      ...(options.body && typeof options.body === 'object'
         ? { body: JSON.stringify(options.body) }
         : { body: options.body }),
     })
+  } catch (error) {
+    throw formatApiConnectionError(error)
+  }
 
+  try {
     // Gestion des erreurs HTTP
     if (response.status === 401) {
       removeToken()
@@ -45,7 +52,7 @@ export async function apiRequest<T>(
     if (response.status === 403) {
       const error: ApiError = {
         message: 'Accès refusé. Permissions insuffisantes.',
-        status: 403
+        status: 403,
       }
       throw error
     }
@@ -53,7 +60,7 @@ export async function apiRequest<T>(
     if (response.status === 404) {
       const error: ApiError = {
         message: 'Ressource non trouvée.',
-        status: 404
+        status: 404,
       }
       throw error
     }
@@ -64,30 +71,36 @@ export async function apiRequest<T>(
         const error = await response.json()
         errorMessage = error.message || errorMessage
       } catch {
-        // Si la réponse n'est pas du JSON, utiliser le message par défaut
+        if (response.status >= 502 && response.status <= 504) {
+          errorMessage =
+            "Le serveur d'API ne répond pas correctement. Vérifiez qu'il est démarré et joignable."
+        }
       }
       throw new Error(errorMessage) as ApiError
     }
 
-    // Si la réponse est vide (204 No Content)
     if (response.status === 204) {
       return {} as T
     }
 
-    return response.json()
+    try {
+      return await response.json()
+    } catch {
+      throw new Error(
+        "Réponse invalide du serveur d'API (JSON attendu). Le service est peut-être indisponible."
+      ) as ApiError
+    }
   } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error) {
+      throw error
+    }
+    if (isLikelyNetworkOrBackendDown(error)) {
+      throw formatApiConnectionError(error)
+    }
     if (error instanceof Error) {
-      const apiError: ApiError = {
-        message: error.message,
-        status: undefined
-      }
-      throw apiError
+      throw { message: error.message, status: undefined } as ApiError
     }
-    const networkError: ApiError = {
-      message: 'Erreur réseau. Vérifiez votre connexion.',
-      status: undefined
-    }
-    throw networkError
+    throw { message: 'Erreur inattendue lors de la communication avec le serveur.', status: undefined } as ApiError
   }
 }
 

@@ -27,6 +27,7 @@ import type { InitiateKelpayPaymentRequest, InitiateKelpayPaymentResponse } from
 
 import { getApiUrl } from './api-endpoints'
 import { logger } from './logger'
+import { formatApiConnectionError } from './api-errors'
 
 const API_URL = getApiUrl()
 
@@ -71,6 +72,15 @@ const removeToken = (): void => {
   localStorage.removeItem('token')
 }
 
+async function fetchApi(url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init)
+  } catch (error) {
+    logger.error('API: connexion impossible', { url }, error)
+    throw formatApiConnectionError(error)
+  }
+}
+
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -82,7 +92,7 @@ async function apiRequest<T>(
   const token = getToken()
   if (token) logger.debug('API: token présent pour la requête')
 
-  const response = await fetch(url, {
+  const response = await fetchApi(url, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -113,22 +123,38 @@ async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    const error: ApiError = await response.json().catch(() => ({
-      statusCode: response.status,
-      message: `Erreur ${response.status}`,
-      error: 'Unknown error',
-    }))
-    logger.error('API: erreur', { endpoint, status: response.status }, error)
-    throw new Error(
-      Array.isArray(error.message)
-        ? error.message.join(', ')
-        : error.message || `Erreur ${response.status}`
-    )
+    let message = `Erreur ${response.status}`
+    try {
+      const error: ApiError = await response.json()
+      logger.error('API: erreur', { endpoint, status: response.status }, error)
+      message = Array.isArray(error.message) ? error.message.join(', ') : error.message || message
+    } catch {
+      logger.warn('API: corps d’erreur non JSON', { endpoint, status: response.status })
+      if (response.status >= 502 && response.status <= 504) {
+        message =
+          "Le serveur d'API ne répond pas correctement (passerelle / timeout). Vérifiez qu'il est démarré et joignable."
+      } else if (response.status >= 500) {
+        message = "Erreur côté serveur d'API. Consultez les logs du backend."
+      }
+    }
+    throw new Error(message)
   }
 
-  const data = await response.json()
-  logger.debug('API: succès', { endpoint })
-  return data as T
+  if (response.status === 204) {
+    logger.debug('API: 204 No Content', { endpoint })
+    return {} as T
+  }
+
+  try {
+    const data = await response.json()
+    logger.debug('API: succès', { endpoint })
+    return data as T
+  } catch (error) {
+    logger.error('API: réponse OK mais JSON illisible', { endpoint }, error)
+    throw new Error(
+      "Réponse invalide du serveur d'API (JSON attendu). Le service est peut-être indisponible ou en maintenance."
+    )
+  }
 }
 
 export const apiClient = {
@@ -309,7 +335,7 @@ export const apiClient = {
         const formData = new FormData()
         formData.append('file', file)
 
-        const response = await fetch(`${API_URL}/tickets/admin/import/recommendations`, {
+        const response = await fetchApi(`${API_URL}/tickets/admin/import/recommendations`, {
           method: 'POST',
           body: formData,
           headers: {
@@ -318,13 +344,25 @@ export const apiClient = {
         })
 
         if (!response.ok) {
-          const error = await response.json().catch(() => ({
-            message: `Erreur ${response.status}`,
-          }))
-          throw new Error(error.message || `Erreur ${response.status}`)
+          let message = `Erreur ${response.status}`
+          try {
+            const error = await response.json()
+            message = error.message || message
+          } catch {
+            if (response.status >= 502 && response.status <= 504) {
+              message =
+                "Le serveur d'API ne répond pas (import). Vérifiez qu'il est démarré."
+            }
+          }
+          throw new Error(message)
         }
 
-        return response.json()
+        try {
+          return await response.json()
+        } catch (error) {
+          logger.error('API: import recommendations — JSON invalide', error)
+          throw new Error("Réponse invalide du serveur après l'analyse du fichier.")
+        }
       },
 
       import: async (file: File): Promise<{ imported: number; failed: number; errors: string[] }> => {
@@ -332,7 +370,7 @@ export const apiClient = {
         const formData = new FormData()
         formData.append('file', file)
 
-        const response = await fetch(`${API_URL}/tickets/admin/import`, {
+        const response = await fetchApi(`${API_URL}/tickets/admin/import`, {
           method: 'POST',
           body: formData,
           headers: {
@@ -341,13 +379,25 @@ export const apiClient = {
         })
 
         if (!response.ok) {
-          const error = await response.json().catch(() => ({
-            message: `Erreur ${response.status}`,
-          }))
-          throw new Error(error.message || `Erreur ${response.status}`)
+          let message = `Erreur ${response.status}`
+          try {
+            const error = await response.json()
+            message = error.message || message
+          } catch {
+            if (response.status >= 502 && response.status <= 504) {
+              message =
+                "Le serveur d'API ne répond pas (import). Vérifiez qu'il est démarré."
+            }
+          }
+          throw new Error(message)
         }
 
-        return response.json()
+        try {
+          return await response.json()
+        } catch (error) {
+          logger.error('API: import CSV — JSON invalide', error)
+          throw new Error("Réponse invalide du serveur après l'import.")
+        }
       },
 
       list: async (): Promise<Ticket[]> => {

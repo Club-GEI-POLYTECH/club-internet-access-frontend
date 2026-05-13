@@ -2,6 +2,7 @@
 import axios from 'axios'
 import { getToken, removeToken } from '@/lib/auth'
 import { getApiUrl } from '@/lib/api-endpoints'
+import { formatApiConnectionError } from '@/lib/api-errors'
 import { logger } from '@/lib/logger'
 import type { InitiateKelpayPaymentRequest, InitiateKelpayPaymentResponse } from '@/types/frontend-types'
 
@@ -45,6 +46,8 @@ api.interceptors.response.use(
     }
     if (error.response?.data?.message) {
       error.message = error.response.data.message
+    } else if (!error.response) {
+      error.message = formatApiConnectionError(error).message
     }
     return Promise.reject(error)
   }
