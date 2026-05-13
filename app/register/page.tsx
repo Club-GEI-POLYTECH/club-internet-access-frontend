@@ -4,7 +4,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { UserPlus, Sparkles, Mail } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { notify } from '@/lib/notify'
 import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/contexts/AuthContext'
 import type { RegisterRequest } from '@/types/api'
@@ -48,7 +48,7 @@ function RegisterPageContent() {
   const handleSendCode = async () => {
     const trimmed = email.trim().toLowerCase()
     if (!isValidRegistrationEmail(trimmed)) {
-      toast.error('Adresse e-mail invalide')
+      notify.error('Adresse e-mail invalide')
       return
     }
     setSendingCode(true)
@@ -58,7 +58,7 @@ function RegisterPageContent() {
       setEmail(trimmed)
       setCodeSent(true)
       setResendCooldown(60)
-      toast.success('Un code à 6 chiffres a été envoyé à votre adresse e-mail.')
+      notify.success('Code à 6 chiffres envoyé', 'Vérifiez votre boîte de réception et le dossier courrier indésirable.')
       logger.info('Register: code e-mail demandé', { email: trimmed })
     } catch (error: unknown) {
       logger.error('Register: échec envoi code', error)
@@ -66,7 +66,7 @@ function RegisterPageContent() {
         error instanceof Error
           ? error.message
           : 'Impossible d’envoyer le code. Vérifiez que le backend expose POST /auth/register/send-email-code'
-      toast.error(message)
+      notify.error(message)
     } finally {
       setSendingCode(false)
     }
@@ -77,20 +77,20 @@ function RegisterPageContent() {
 
     const trimmedEmail = email.trim().toLowerCase()
     if (!isValidRegistrationEmail(trimmedEmail)) {
-      toast.error('Adresse e-mail invalide')
+      notify.error('Adresse e-mail invalide')
       return
     }
     if (!isSixDigitVerificationCode(emailVerificationCode)) {
-      toast.error('Entrez le code à 6 chiffres reçu par e-mail')
+      notify.error('Entrez le code à 6 chiffres reçu par e-mail')
       return
     }
     if (!codeSent) {
-      toast.error('Demandez d’abord un code de vérification pour cet e-mail')
+      notify.error('Demandez d’abord un code de vérification pour cet e-mail')
       return
     }
 
     if (password !== confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas')
+      notify.error('Les mots de passe ne correspondent pas')
       return
     }
 
@@ -108,7 +108,7 @@ function RegisterPageContent() {
       }
 
       await apiClient.auth.register(payload)
-      toast.success('Compte créé avec succès, connexion en cours...')
+      notify.success('Compte créé', 'Connexion en cours…')
       logger.info('Register: compte créé, tentative de connexion', { email: trimmedEmail })
 
       await login(trimmedEmail, password)
@@ -123,7 +123,7 @@ function RegisterPageContent() {
           : error instanceof Error
             ? error.message
             : undefined
-      toast.error(message || 'Erreur lors de la création du compte')
+      notify.error(message || 'Erreur lors de la création du compte')
     } finally {
       setLoading(false)
     }

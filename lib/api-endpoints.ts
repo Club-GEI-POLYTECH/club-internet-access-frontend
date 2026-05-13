@@ -53,6 +53,9 @@ export const API_ENDPOINTS = {
     list: '/payments',
     /** KELPAY Mobile Money — JWT requis */
     initiateKelpay: '/payments/initiate',
+    kelpayVerify: (id: string) => `/payments/${id}/kelpay/verify`,
+    kelpayConfirm: (id: string) => `/payments/${id}/kelpay/confirm`,
+    kelpayCancel: (id: string) => `/payments/${id}/kelpay/cancel`,
     get: (id: string) => `/payments/${id}`,
     getByTransaction: (transactionId: string) => `/payments/transaction/${transactionId}`,
     create: '/payments',
@@ -87,6 +90,7 @@ export const API_ENDPOINTS = {
   // --- Admin Tickets (préfixe /admin/tickets) ---
   adminTickets: {
     import: '/admin/tickets/import',
+    importRecommendations: '/admin/tickets/import/recommendations',
     stats: '/admin/tickets/stats',
     updatePrice: (ticketId: string) => `/admin/tickets/${ticketId}/price`,
     delete: (ticketId: string) => `/admin/tickets/${ticketId}`,
@@ -95,6 +99,7 @@ export const API_ENDPOINTS = {
   // --- Tickets Admin (préfixe /tickets/admin, alternatif backend) ---
   ticketsAdmin: {
     import: '/tickets/admin/import',
+    importRecommendations: '/tickets/admin/import/recommendations',
     stats: '/tickets/admin/stats',
     updatePrice: (ticketId: string) => `/tickets/admin/${ticketId}/price`,
     delete: (ticketId: string) => `/tickets/admin/${ticketId}`,

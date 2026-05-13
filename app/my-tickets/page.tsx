@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Clock, HardDrive, ShoppingCart, LayoutDashboard, Ticket as TicketIcon } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { Clock, HardDrive, ShoppingCart, LayoutDashboard, Ticket as TicketIcon, Copy } from 'lucide-react'
+import { notify } from '@/lib/notify'
 import { useAuth } from '@/contexts/AuthContext'
 import type { Ticket } from '@/types/api'
 import { TicketStatus } from '@/types/api'
 import { apiClient } from '@/lib/api-client'
+import { parseApiDecimal } from '@/lib/normalize-ticket-api'
 import { logger } from '@/lib/logger'
 
 export default function MyTicketsPage() {
@@ -36,7 +37,10 @@ export default function MyTicketsPage() {
         logger.info('MyTickets: tickets chargés', { count: data.length })
       } catch (error: unknown) {
         logger.error('MyTickets: erreur chargement tickets', error)
-        toast.error('Erreur lors du chargement de vos tickets')
+        notify.error(
+          'Impossible d’afficher vos tickets',
+          'Vérifiez votre connexion ou reconnectez-vous, puis actualisez la page.',
+        )
       } finally {
         setLoading(false)
       }
@@ -45,12 +49,21 @@ export default function MyTicketsPage() {
     fetchTickets()
   }, [user, authLoading, router])
 
-  const formatPrice = (price: number) => {
+  const formatPrice = (price: number | string | null | undefined) => {
+    const n = parseApiDecimal(price)
+    if (!Number.isFinite(n) || n < 0) {
+      return 'Prix non renseigné'
+    }
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: 'CDF',
       minimumFractionDigits: 0,
-    }).format(price)
+    }).format(n)
+  }
+
+  const copyToClipboard = (text: string, label: string) => {
+    void navigator.clipboard.writeText(text)
+    notify.success('Copié', `${label} est dans le presse-papier.`)
   }
 
   const formatDateTime = (value?: string) => {
@@ -183,9 +196,40 @@ export default function MyTicketsPage() {
                     </p>
                   </div>
 
-                  <div className="relative mt-3 rounded-xl bg-ink-900/5 px-3 py-2">
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Identifiant</p>
-                    <p className="mt-1 break-all font-mono text-sm font-semibold text-ink-900">{ticket.username}</p>
+                  <div className="relative mt-3 space-y-3">
+                    <div className="rounded-xl bg-ink-900/5 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Identifiant</p>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(ticket.username, "Nom d'utilisateur")}
+                          className="rounded-lg p-1.5 text-ink-500 transition-colors hover:bg-white/80 hover:text-primary-600"
+                          title="Copier le nom d'utilisateur"
+                          aria-label="Copier le nom d'utilisateur"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="mt-1 break-all font-mono text-sm font-semibold text-ink-900">{ticket.username}</p>
+                    </div>
+                    <div className="rounded-xl bg-ink-900/5 px-3 py-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Mot de passe</p>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(ticket.password || '', 'Mot de passe')}
+                          disabled={!ticket.password}
+                          className="rounded-lg p-1.5 text-ink-500 transition-colors hover:bg-white/80 hover:text-primary-600 disabled:pointer-events-none disabled:opacity-30"
+                          title="Copier le mot de passe"
+                          aria-label="Copier le mot de passe"
+                        >
+                          <Copy className="h-4 w-4" />
+                        </button>
+                      </div>
+                      <p className="mt-1 break-all font-mono text-sm font-semibold text-ink-900">
+                        {ticket.password?.trim() ? ticket.password : '—'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               ))}

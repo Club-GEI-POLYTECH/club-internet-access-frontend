@@ -5,7 +5,7 @@ import { dashboardService } from '@/services/api'
 import { apiClient } from '@/lib/api-client'
 import { Ticket as TicketIcon, DollarSign, ShoppingCart, Package } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
-import toast from 'react-hot-toast'
+import { notify } from '@/lib/notify'
 import type { DashboardStats, ChartData } from '@/types/api'
 
 type TicketAdminStats = {
@@ -39,7 +39,7 @@ export default function DashboardAdmin() {
       setCharts(chartsData)
       setTicketStats(ticketsData)
     } catch (error: unknown) {
-      toast.error('Erreur lors du chargement des données')
+      notify.error('Tableau de bord indisponible', 'Impossible de charger les statistiques. Réessayez dans un instant.')
     } finally {
       setLoading(false)
     }

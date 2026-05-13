@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Ticket, ShoppingCart, CreditCard } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { notify } from '@/lib/notify'
 import type { Payment, Ticket as TicketModel } from '@/types/api'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -28,13 +28,13 @@ export default function DashboardStudent() {
       setMyPayments(payments.slice(0, 6))
     } catch (error) {
       console.error('Erreur lors du chargement:', error)
-      toast.error('Impossible de charger vos données')
+      notify.error('Données indisponibles', 'Impossible de charger votre espace. Actualisez la page.')
     }
   }
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
-    toast.success('Copié dans le presse-papiers!')
+    notify.success('Copié', 'Le contenu est dans le presse-papier.')
   }
 
   return (

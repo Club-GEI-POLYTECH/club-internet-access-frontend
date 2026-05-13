@@ -294,7 +294,7 @@ export interface TicketType {
   description: string
   timeLimit?: string // Format: "1d", "24h", null si illimité
   dataLimit?: string // Format: "1GB", "500MB", null si illimité
-  price: number // Prix en CDF
+  price: number // Prix en CDF (l’API peut renvoyer une chaîne décimale ; normalisé dans apiClient)
   isActive: boolean
   availableCount: number // Nombre de tickets disponibles de ce type
   createdAt: string
@@ -310,7 +310,7 @@ export interface Ticket {
   dataLimit?: string // Format: "1GB" ou vide si illimité
   comment?: string // Timestamp de création depuis Mikhmon
   status: TicketStatus
-  price: number // Prix de vente en CDF
+  price: number // Prix de vente en CDF (chaîne possible côté API ; normalisé dans apiClient)
   soldAt?: string
   soldTo?: string // Email ou téléphone de l'acheteur
   paymentId?: string

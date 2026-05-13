@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { authService } from '@/services/api'
-import toast from 'react-hot-toast'
+import { notify } from '@/lib/notify'
 import { Lock, ArrowLeft, CheckCircle } from 'lucide-react'
 
 export default function ResetPassword() {
@@ -19,7 +19,7 @@ export default function ResetPassword() {
 
   useEffect(() => {
     if (!token) {
-      toast.error('Token de réinitialisation manquant')
+      notify.error('Token de réinitialisation manquant')
       router.push('/forgot-password')
     }
   }, [token, router])
@@ -28,17 +28,17 @@ export default function ResetPassword() {
     e.preventDefault()
 
     if (newPassword !== confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas')
+      notify.error('Les mots de passe ne correspondent pas')
       return
     }
 
     if (newPassword.length < 8) {
-      toast.error('Le mot de passe doit contenir au moins 8 caractères')
+      notify.error('Le mot de passe doit contenir au moins 8 caractères')
       return
     }
 
     if (!token) {
-      toast.error('Token de réinitialisation manquant')
+      notify.error('Token de réinitialisation manquant')
       return
     }
 
@@ -47,14 +47,14 @@ export default function ResetPassword() {
     try {
       await authService.resetPassword(token, newPassword)
       setSuccess(true)
-      toast.success('Mot de passe réinitialisé avec succès!')
+      notify.success('Mot de passe réinitialisé avec succès!')
       
       // Rediriger vers la page de connexion après 3 secondes
       setTimeout(() => {
         router.push('/login')
       }, 3000)
     } catch (error: any) {
-      toast.error(
+      notify.error(
         error.response?.data?.message || 
         'Erreur lors de la réinitialisation. Le lien peut être expiré ou invalide.'
       )

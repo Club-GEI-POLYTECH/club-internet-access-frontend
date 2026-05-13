@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
-import toast from 'react-hot-toast'
+import { notify } from '@/lib/notify'
 import { Wifi, Sparkles, ArrowRight } from 'lucide-react'
 
 export default function Login() {
@@ -37,7 +37,7 @@ export default function Login() {
 
     try {
       await login(email, password)
-      toast.success('Connexion réussie!')
+      notify.success('Bienvenue !', 'Vous êtes connecté·e.')
       logger.info('Login: connexion réussie, redirection')
 
       if (
@@ -56,7 +56,7 @@ export default function Login() {
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
           : undefined
-      toast.error(msg || 'Erreur de connexion')
+      notify.error('Connexion refusée', msg || 'Vérifiez votre e-mail et votre mot de passe.')
     } finally {
       setLoading(false)
     }

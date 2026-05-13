@@ -3,9 +3,11 @@
 import { useState, useRef, useEffect } from 'react'
 import { Upload, FileText, CheckCircle, XCircle, AlertCircle, Download } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
+import { parseApiDecimal } from '@/lib/normalize-ticket-api'
 import { logger } from '@/lib/logger'
-import toast from 'react-hot-toast'
+import { notify } from '@/lib/notify'
 import type { TicketType } from '@/types/api'
+import type { CatalogDurationFallback, ImportTicketsMultipartOptions } from '@/types/frontend-types'
 
 /**
  * Composant d'administration pour gérer les tickets
@@ -17,6 +19,8 @@ export default function TicketManagement() {
   const [loadingTypes, setLoadingTypes] = useState(true)
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([])
   const [selectedTypeId, setSelectedTypeId] = useState('')
+  const [useCatalogFallback, setUseCatalogFallback] = useState(false)
+  const [catalogDuration, setCatalogDuration] = useState<CatalogDurationFallback>('24h')
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [localPreviewStats, setLocalPreviewStats] = useState<{
     totalLines: number
@@ -41,37 +45,44 @@ export default function TicketManagement() {
   } | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const getDurationKey = (timeLimit?: string) => {
-    const tl = (timeLimit || '').toLowerCase()
-    if (tl.includes('30')) return '30d'
-    if (tl.includes('7')) return '7d'
-    return '24h'
+  const catalogDurationLabels: Record<CatalogDurationFallback, string> = {
+    '24h': '24 heures (24h)',
+    '7j': '7 jours (7j)',
+    '30j': '30 jours (30j)',
   }
 
-  const expectedDurations: Array<{ key: '24h' | '7d' | '30d'; label: string }> = [
-    { key: '24h', label: '24 heures' },
-    { key: '7d', label: '7 jours' },
-    { key: '30d', label: '30 jours' },
-  ]
-
   const selectedType = ticketTypes.find((t) => t.id === selectedTypeId) ?? null
+
+  const formatCdf = (raw: unknown) => {
+    const n = parseApiDecimal(raw)
+    return Number.isFinite(n)
+      ? new Intl.NumberFormat('fr-FR', {
+          style: 'currency',
+          currency: 'CDF',
+          minimumFractionDigits: 0,
+        }).format(n)
+      : '—'
+  }
+
+  const buildImportOptions = (): ImportTicketsMultipartOptions | null => {
+    if (useCatalogFallback) return { catalogDuration }
+    if (selectedTypeId) return { ticketTypeId: selectedTypeId }
+    return null
+  }
 
   useEffect(() => {
     logger.log('TicketManagement: montage du composant')
     const loadTypes = async () => {
       try {
         const types = await apiClient.tickets.getTypes()
-        const allowed = types.filter((t) => {
-          const d = getDurationKey(t.timeLimit)
-          return d === '24h' || d === '7d' || d === '30d'
-        })
-        setTicketTypes(allowed)
-        if (allowed.length > 0) {
-          setSelectedTypeId(allowed[0].id)
+        const active = types.filter((t) => t.isActive !== false)
+        setTicketTypes(active)
+        if (active.length > 0) {
+          setSelectedTypeId((prev) => (prev && active.some((t) => t.id === prev) ? prev : active[0].id))
         }
       } catch (error) {
         logger.error('TicketManagement: erreur chargement types', error)
-        toast.error('Impossible de charger les types (24h / 7j / 30j)')
+        notify.error('Types indisponibles', 'Impossible de charger le catalogue (GET /tickets/types). Réessayez plus tard.')
       } finally {
         setLoadingTypes(false)
       }
@@ -80,11 +91,16 @@ export default function TicketManagement() {
   }, [])
 
   const analyzeFile = async (file: File) => {
-    if (!selectedType) {
-      toast.error('Choisissez le type d’import (24h / 7j / 30j) avant de charger le CSV')
+    const opts = buildImportOptions()
+    if (!opts) {
+      notify.error(
+        useCatalogFallback
+          ? 'Choisissez une durée catalogue (24h / 7j / 30j)'
+          : 'Choisissez un type de ticket dans la liste (UUID depuis GET /tickets/types)',
+      )
       return
     }
-    logger.info('TicketManagement: analyse CSV (recommandations)', { name: file.name })
+    logger.info('TicketManagement: analyse CSV (recommandations)', { name: file.name, opts })
     setAnalyzing(true)
     setRecommendations(null)
     setLocalPreviewStats(null)
@@ -100,7 +116,7 @@ export default function TicketManagement() {
         dataLines: Math.max(lines.length - 1, 0),
       })
 
-      const result = await apiClient.admin.tickets.importRecommendations(file) as any
+      const result = (await apiClient.admin.tickets.importRecommendations(file, opts)) as any
       const normalized = result?.data ?? result
       const normalizedRecommendations = Array.isArray(normalized?.recommendations)
         ? normalized.recommendations
@@ -121,10 +137,10 @@ export default function TicketManagement() {
         invalidLines: Number(normalized?.invalidLines ?? normalized?.invalid ?? normalized?.rowsInvalid ?? 0) || 0,
       })
       setSelectedFile(file)
-      toast.success('Prévisualisation terminée. Vérifiez puis lancez l’import.')
+      notify.success('Analyse terminée', 'Vérifiez les totaux ci-dessous, puis lancez l’import réel.')
     } catch (error: any) {
       logger.error('TicketManagement: erreur analyse import', error)
-      toast.error(error.message || "Erreur lors de l'analyse du fichier")
+      notify.error('Analyse impossible', error.message || 'Le fichier ou le serveur a refusé la prévisualisation.')
       setSelectedFile(null)
     } finally {
       setAnalyzing(false)
@@ -133,26 +149,37 @@ export default function TicketManagement() {
 
   const processFile = async () => {
     if (!selectedFile) {
-      toast.error('Sélectionnez d’abord un fichier CSV')
+      notify.error('Sélectionnez d’abord un fichier CSV')
       return
     }
-    if (!selectedType) {
-      toast.error('Choisissez le type d’import (24h / 7j / 30j)')
+    const opts = buildImportOptions()
+    if (!opts) {
+      notify.error(
+        useCatalogFallback
+          ? 'Choisissez une durée catalogue (24h / 7j / 30j)'
+          : 'Choisissez un type de ticket dans la liste',
+      )
       return
     }
-    logger.log('TicketManagement: fichier reçu', { name: selectedFile.name, size: selectedFile.size })
+    logger.log('TicketManagement: fichier reçu', { name: selectedFile.name, size: selectedFile.size, opts })
     setUploading(true)
     setImportResult(null)
     logger.info('TicketManagement: import CSV en cours', { name: selectedFile.name })
     try {
-      const result = await apiClient.admin.tickets.import(selectedFile)
+      const result = await apiClient.admin.tickets.import(selectedFile, opts)
       setImportResult(result)
       logger.info('TicketManagement: import terminé', result)
       if (result.imported > 0) {
-        toast.success(`${result.imported} ticket(s) importé(s) avec succès!`)
+        notify.success(
+          'Import réussi',
+          `${result.imported} ligne(s) importée(s). Les tickets sont disponibles à la vente.`,
+        )
       }
       if (result.failed > 0) {
-        toast.error(`${result.failed} ticket(s) n'ont pas pu être importé(s)`)
+        notify.error(
+          'Import partiel',
+          `${result.failed} ligne(s) en échec. Consultez la liste d’erreurs sous le tableau de bord.`,
+        )
       }
       if (fileInputRef.current) {
         fileInputRef.current.value = ''
@@ -161,7 +188,7 @@ export default function TicketManagement() {
       setRecommendations(null)
     } catch (error: any) {
       logger.error('TicketManagement: erreur import', error)
-      toast.error(error.message || 'Erreur lors de l\'importation du fichier')
+      notify.error('Import interrompu', error.message || 'Le serveur n’a pas pu finaliser l’import.')
     } finally {
       setUploading(false)
     }
@@ -173,7 +200,7 @@ export default function TicketManagement() {
       logger.log('TicketManagement: sélection fichier', { name: file.name })
       if (!file.name.endsWith('.csv')) {
         logger.warn('TicketManagement: fichier non CSV', { name: file.name })
-        toast.error('Veuillez sélectionner un fichier CSV')
+        notify.error('Veuillez sélectionner un fichier CSV')
         return
       }
       void analyzeFile(file)
@@ -197,7 +224,7 @@ export default function TicketManagement() {
       void analyzeFile(file)
     } else {
       logger.warn('TicketManagement: drop fichier non CSV')
-      toast.error('Veuillez déposer un fichier CSV')
+      notify.error('Veuillez déposer un fichier CSV')
     }
   }
 
@@ -220,57 +247,94 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
     logger.info('TicketManagement: template CSV téléchargé')
   }
 
+  const importTargetSummary = useCatalogFallback
+    ? `Repli catalogue · ${catalogDurationLabels[catalogDuration]}`
+    : selectedType
+      ? `${selectedType.name} · ${formatCdf(selectedType.price)} · UUID ${selectedType.id}`
+      : '—'
+
   return (
     <div className="space-y-8">
       <div>
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Administration</p>
         <h2 className="font-display mt-1 text-3xl font-bold tracking-tight text-ink-900">Import des tickets</h2>
         <p className="mt-2 max-w-2xl text-ink-600">
-          Importez des tickets pré-générés depuis votre fichier CSV (aucune création de codes dans cette application).
+          Importez des tickets pré-générés depuis votre fichier CSV (aucune création de codes dans cette application). Les types
+          proviennent de <code className="rounded bg-ink-100 px-1 text-xs">GET /tickets/types</code> (id = valeur{' '}
+          <code className="rounded bg-ink-100 px-1 text-xs">ticketTypeId</code>).
         </p>
       </div>
 
-      {/* Zone d'upload */}
       <div className="card">
         <h3 className="font-display text-lg font-bold text-ink-900 mb-1">Fichier CSV</h3>
         <p className="mb-6 text-sm text-ink-500">Glissez-déposez ou sélectionnez votre export.</p>
 
-        <div className="mb-6 rounded-2xl border border-ink-200 bg-ink-50/60 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-ink-600">Type d&apos;import *</p>
-          <p className="mt-1 text-sm text-ink-500">Choisissez le forfait cible avant l’analyse/import du CSV.</p>
-
-          <div className="mt-3 grid gap-3 sm:grid-cols-3">
-            {expectedDurations.map((duration) => {
-              const type = ticketTypes.find((t) => getDurationKey(t.timeLimit) === duration.key)
-              const checked = selectedTypeId === type?.id
-              return (
-                <label
-                  key={duration.key}
-                  className={`rounded-xl border p-3 transition-all ${
-                    checked ? 'border-primary-500 bg-primary-50 ring-2 ring-primary-200' : 'border-ink-200 bg-white'
-                  } ${type ? 'cursor-pointer' : 'opacity-70'}`}
-                >
-                  <input
-                    type="radio"
-                    name="import-type"
-                    className="sr-only"
-                    disabled={!type || loadingTypes || uploading || analyzing}
-                    checked={checked}
-                    onChange={() => {
-                      if (type) setSelectedTypeId(type.id)
-                    }}
-                  />
-                  <p className="text-sm font-bold text-ink-900">{duration.label}</p>
-                  <p className="text-xs text-ink-600">
-                    {type
-                      ? `${new Intl.NumberFormat('fr-FR').format(type.price)} CDF`
-                      : 'Prix non disponible (type absent en base)'}
-                  </p>
-                  <p className="mt-1 text-[11px] text-ink-500">{type ? `Type DB: ${type.name}` : 'Type non trouvé en base'}</p>
-                </label>
-              )
-            })}
+        <div className="mb-6 rounded-2xl border border-ink-200 bg-ink-50/60 p-4 space-y-4">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-ink-600">Cible d&apos;import *</p>
+            <p className="mt-1 text-sm text-ink-500">
+              Par défaut : un type du catalogue (UUID). Option avancée : repli <code className="rounded bg-white/80 px-1">catalogDuration</code>{' '}
+              sans UUID (comportement historique).
+            </p>
           </div>
+
+          <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-ink-200 bg-white p-3">
+            <input
+              type="checkbox"
+              className="mt-1"
+              checked={useCatalogFallback}
+              disabled={loadingTypes || uploading || analyzing}
+              onChange={(e) => setUseCatalogFallback(e.target.checked)}
+            />
+            <span className="text-sm text-ink-800">
+              <span className="font-semibold">Repli catalogue sans UUID</span>
+              <span className="block text-xs text-ink-500">Envoie uniquement <code className="rounded bg-ink-50 px-1">catalogDuration</code> (24h | 7j | 30j), sans <code className="rounded bg-ink-50 px-1">ticketTypeId</code>.</span>
+            </span>
+          </label>
+
+          {useCatalogFallback ? (
+            <div>
+              <label htmlFor="catalog-duration" className="text-xs font-semibold uppercase tracking-wide text-ink-600">
+                Durée catalogue
+              </label>
+              <select
+                id="catalog-duration"
+                className="input mt-1 w-full max-w-md"
+                value={catalogDuration}
+                disabled={loadingTypes || uploading || analyzing}
+                onChange={(e) => setCatalogDuration(e.target.value as CatalogDurationFallback)}
+              >
+                {(Object.keys(catalogDurationLabels) as CatalogDurationFallback[]).map((key) => (
+                  <option key={key} value={key}>
+                    {catalogDurationLabels[key]}
+                  </option>
+                ))}
+              </select>
+            </div>
+          ) : (
+            <div>
+              <label htmlFor="import-ticket-type" className="text-xs font-semibold uppercase tracking-wide text-ink-600">
+                Type de ticket (valeur = ticketTypeId)
+              </label>
+              {ticketTypes.length === 0 && !loadingTypes ? (
+                <p className="mt-2 text-sm text-amber-800">Aucun type actif renvoyé par l&apos;API. Créez des types côté backend ou vérifiez GET /tickets/types.</p>
+              ) : (
+                <select
+                  id="import-ticket-type"
+                  className="input mt-1 w-full font-mono text-sm"
+                  value={selectedTypeId}
+                  disabled={loadingTypes || uploading || analyzing || ticketTypes.length === 0}
+                  onChange={(e) => setSelectedTypeId(e.target.value)}
+                >
+                  {ticketTypes.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name} · {formatCdf(t.price)} · profil {t.profile} · limite {t.timeLimit ?? '—'} · {t.id}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
         </div>
 
         <div
@@ -284,39 +348,24 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
         >
           {uploading || analyzing ? (
             <div>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+              <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-primary-600"></div>
               <p className="text-gray-600">{analyzing ? 'Analyse du CSV...' : 'Importation en cours...'}</p>
             </div>
           ) : (
             <>
-              <Upload className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <p className="text-gray-600 mb-2">
-                Glissez-déposez votre fichier CSV ici ou cliquez pour sélectionner
-              </p>
-              <p className="text-sm text-gray-500 mb-4">
+              <Upload className="mx-auto mb-4 h-12 w-12 text-gray-400" />
+              <p className="mb-2 text-gray-600">Glissez-déposez votre fichier CSV ici ou cliquez pour sélectionner</p>
+              <p className="mb-4 text-sm text-gray-500">
                 Format attendu : Username,Password,Profile,Time Limit,Data Limit,Comment
               </p>
-              <div className="flex gap-3 justify-center">
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".csv"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="csv-upload"
-                />
-                <label
-                  htmlFor="csv-upload"
-                  className="btn btn-primary cursor-pointer"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
+              <div className="flex flex-wrap justify-center gap-3">
+                <input ref={fileInputRef} type="file" accept=".csv" onChange={handleFileSelect} className="hidden" id="csv-upload" />
+                <label htmlFor="csv-upload" className="btn btn-primary cursor-pointer">
+                  <FileText className="mr-2 h-4 w-4" />
                   Sélectionner un fichier CSV
                 </label>
-                <button
-                  onClick={downloadTemplate}
-                  className="btn btn-secondary"
-                >
-                  <Download className="h-4 w-4 mr-2" />
+                <button type="button" onClick={downloadTemplate} className="btn btn-secondary">
+                  <Download className="mr-2 h-4 w-4" />
                   Télécharger le modèle
                 </button>
               </div>
@@ -331,7 +380,7 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
               Fichier: <span className="font-medium">{selectedFile.name}</span>
             </p>
             <p className="mt-1 text-sm text-ink-600">
-              Type choisi: <span className="font-medium">{selectedType?.name || '—'}</span>
+              Cible: <span className="font-medium break-all">{importTargetSummary}</span>
             </p>
             <div className="mt-4 grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl bg-white p-3 text-center">
@@ -350,24 +399,28 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
 
             {localPreviewStats && (
               <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                Vérification locale du fichier : {localPreviewStats.dataLines} ligne(s) de données détectée(s)
-                ({localPreviewStats.totalLines} ligne(s) au total avec en-tête).
+                Vérification locale du fichier : {localPreviewStats.dataLines} ligne(s) de données détectée(s) (
+                {localPreviewStats.totalLines} ligne(s) au total avec en-tête).
               </div>
             )}
 
             {localPreviewStats && recommendations.validLines === 0 && localPreviewStats.dataLines > 0 && (
               <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
-                Le backend de prévisualisation retourne 0 ligne valide alors que le fichier contient des lignes.
-                Vérifiez la route `POST /api/tickets/admin/import/recommendations` (parse CSV / mapping des colonnes).
+                Le backend de prévisualisation retourne 0 ligne valide alors que le fichier contient des lignes. Vérifiez{' '}
+                <code className="rounded bg-white/80 px-1">POST /admin/tickets/import/recommendations</code> (repli 404 :{' '}
+                <code className="rounded bg-white/80 px-1">POST /tickets/admin/import/recommendations</code>).
               </div>
             )}
 
             <div className="mt-4 space-y-2">
               {recommendations.recommendations?.map((rec) => (
                 <div key={rec.durationKey} className="rounded-xl border border-white/70 bg-white p-3 text-sm">
-                  <p className="font-semibold text-ink-900">{rec.label} — {rec.count} ticket(s)</p>
+                  <p className="font-semibold text-ink-900">
+                    {rec.label} — {rec.count} ticket(s)
+                  </p>
                   <p className="text-ink-600">
-                    Prix recommandé: {new Intl.NumberFormat('fr-FR').format(rec.recommendedPrice)} CDF · Action: {rec.action === 'create_new' ? 'création du type' : 'type existant'}
+                    Prix recommandé: {new Intl.NumberFormat('fr-FR').format(rec.recommendedPrice)} CDF · Action:{' '}
+                    {rec.action === 'create_new' ? 'création du type' : 'type existant'}
                   </p>
                 </div>
               ))}
@@ -381,54 +434,55 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
           </div>
         )}
 
-        {/* Instructions */}
         <div className="mt-8 rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/90 to-cyan-50/40 p-5">
           <div className="flex items-start gap-3">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
             <div className="text-sm text-primary-950/90">
-              <p className="font-semibold text-primary-900">Instructions</p>
-              <ul className="mt-2 list-disc list-inside space-y-1.5">
-                <li>Utilisez un export CSV de votre outil de gestion des accès (colonnes attendues ci-dessous)</li>
-                <li>Le fichier doit contenir les colonnes : Username, Password, Profile, Time Limit, Data Limit, Comment</li>
-                <li>Sélectionnez d’abord le type d’import (24h, 7j ou 30j) dans le formulaire</li>
-                <li>Une prévisualisation est faite avant import (recommandations par type)</li>
-                <li>Les champs Time Limit et Data Limit peuvent être vides (illimité)</li>
-                <li>Les tickets importés seront automatiquement disponibles à la vente</li>
+              <p className="font-semibold text-primary-900">Instructions (contrat Nest + Multer)</p>
+              <ul className="mt-2 list-inside list-disc space-y-1.5">
+                <li>Charger les types une fois via GET /tickets/types ; chaque id (UUID) est la valeur de ticketTypeId.</li>
+                <li>
+                  Multipart : champ <code className="rounded bg-white/80 px-1">file</code> + soit{' '}
+                  <code className="rounded bg-white/80 px-1">ticketTypeId</code> (recommandé), soit seulement{' '}
+                  <code className="rounded bg-white/80 px-1">catalogDuration</code> (24h | 7j | 30j) sans UUID.
+                </li>
+                <li>Import : POST /admin/tickets/import (repli automatique 404 sur POST /tickets/admin/import).</li>
+                <li>Le fichier doit contenir : Username, Password, Profile, Time Limit, Data Limit, Comment</li>
+                <li>Prévisualisation avant import ; Time Limit / Data Limit peuvent être vides</li>
               </ul>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Résultats de l'importation */}
       {importResult && (
         <div className="card">
-          <h3 className="font-display text-lg font-bold text-ink-900 mb-4">Résultats de l&apos;importation</h3>
+          <h3 className="font-display mb-4 text-lg font-bold text-ink-900">Résultats de l&apos;importation</h3>
 
-          <div className="grid grid-cols-3 gap-4 mb-4">
-            <div className="bg-green-50 rounded-lg p-4 text-center">
-              <CheckCircle className="h-8 w-8 text-green-600 mx-auto mb-2" />
+          <div className="mb-4 grid grid-cols-3 gap-4">
+            <div className="rounded-lg bg-green-50 p-4 text-center">
+              <CheckCircle className="mx-auto mb-2 h-8 w-8 text-green-600" />
               <p className="text-2xl font-bold text-green-600">{importResult.imported}</p>
               <p className="text-sm text-gray-600">Importés</p>
             </div>
 
-            <div className="bg-red-50 rounded-lg p-4 text-center">
-              <XCircle className="h-8 w-8 text-red-600 mx-auto mb-2" />
+            <div className="rounded-lg bg-red-50 p-4 text-center">
+              <XCircle className="mx-auto mb-2 h-8 w-8 text-red-600" />
               <p className="text-2xl font-bold text-red-600">{importResult.failed}</p>
               <p className="text-sm text-gray-600">Échoués</p>
             </div>
 
-            <div className="bg-blue-50 rounded-lg p-4 text-center">
-              <FileText className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+            <div className="rounded-lg bg-blue-50 p-4 text-center">
+              <FileText className="mx-auto mb-2 h-8 w-8 text-blue-600" />
               <p className="text-2xl font-bold text-blue-600">{importResult.errors.length}</p>
               <p className="text-sm text-gray-600">Erreurs</p>
             </div>
           </div>
 
           {importResult.errors.length > 0 && (
-            <div className="bg-red-50 rounded-lg p-4">
-              <p className="font-semibold text-red-900 mb-2">Détails des erreurs :</p>
-              <ul className="list-disc list-inside text-sm text-red-800 space-y-1">
+            <div className="rounded-lg bg-red-50 p-4">
+              <p className="mb-2 font-semibold text-red-900">Détails des erreurs :</p>
+              <ul className="list-inside list-disc space-y-1 text-sm text-red-800">
                 {importResult.errors.map((error, index) => (
                   <li key={index}>{error}</li>
                 ))}

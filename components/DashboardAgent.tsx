@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { apiClient } from '@/lib/api-client'
 import { ticketTypesPricePlaceholder } from '@/lib/ticket-type-price-placeholder'
 import { DollarSign, ShoppingCart, CreditCard } from 'lucide-react'
-import toast from 'react-hot-toast'
+import { notify } from '@/lib/notify'
 import type { Payment, CreatePaymentRequest } from '@/types/api'
 import { PaymentMethod as PaymentMethodEnum } from '@/types/api'
 import { paymentMethodLabels } from '@/types/api'
@@ -46,7 +46,7 @@ export default function DashboardAgent() {
 
     try {
       await apiClient.payments.create(paymentData)
-      toast.success('Paiement créé avec succès!')
+      notify.success('Paiement enregistré', 'Le paiement a été créé et apparaît dans la liste récente.')
       setShowPaymentModal(false)
       setPaymentData({
         amount: 0,
@@ -56,7 +56,7 @@ export default function DashboardAgent() {
       loadRecentData()
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Erreur lors de la création du paiement'
-      toast.error(message)
+      notify.error(message)
     } finally {
       setLoading(false)
     }

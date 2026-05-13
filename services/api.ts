@@ -4,7 +4,13 @@ import { getToken, removeToken } from '@/lib/auth'
 import { getApiUrl } from '@/lib/api-endpoints'
 import { formatApiConnectionError } from '@/lib/api-errors'
 import { logger } from '@/lib/logger'
-import type { InitiateKelpayPaymentRequest, InitiateKelpayPaymentResponse } from '@/types/frontend-types'
+import type { Payment } from '@/types/api'
+import type {
+  InitiateKelpayPaymentRequest,
+  InitiateKelpayPaymentResponse,
+  KelpayConfirmPaymentResponse,
+  KelpayVerifyPaymentResponse,
+} from '@/types/frontend-types'
 
 const API_URL = getApiUrl()
 
@@ -109,13 +115,30 @@ export const paymentsService = {
     return response.data
   },
 
-  complete: async (id: string, transactionId?: string) => {
-    const response = await api.post(`/payments/${id}/complete`, { transactionId })
+  complete: async (id: string, transactionId: string) => {
+    const response = await api.post(`/payments/${id}/complete`, {
+      transactionId: transactionId.trim(),
+    })
     return response.data
   },
 
   initiateKelpay: async (data: InitiateKelpayPaymentRequest): Promise<InitiateKelpayPaymentResponse> => {
     const response = await api.post<InitiateKelpayPaymentResponse>('/payments/initiate', data)
+    return response.data
+  },
+
+  verifyKelpay: async (paymentId: string): Promise<KelpayVerifyPaymentResponse> => {
+    const response = await api.post<KelpayVerifyPaymentResponse>(`/payments/${paymentId}/kelpay/verify`, {})
+    return response.data
+  },
+
+  confirmKelpay: async (paymentId: string): Promise<KelpayConfirmPaymentResponse> => {
+    const response = await api.post<KelpayConfirmPaymentResponse>(`/payments/${paymentId}/kelpay/confirm`, {})
+    return response.data
+  },
+
+  cancelKelpay: async (paymentId: string): Promise<Payment> => {
+    const response = await api.post<Payment>(`/payments/${paymentId}/kelpay/cancel`, {})
     return response.data
   },
 }

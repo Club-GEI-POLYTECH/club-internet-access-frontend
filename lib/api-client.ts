@@ -23,13 +23,65 @@ import type {
   TicketPurchaseRequest,
   TicketPurchaseResponse,
 } from '@/types/api'
-import type { InitiateKelpayPaymentRequest, InitiateKelpayPaymentResponse } from '@/types/frontend-types'
+import type {
+  InitiateKelpayPaymentRequest,
+  InitiateKelpayPaymentResponse,
+  KelpayConfirmPaymentResponse,
+  KelpayVerifyPaymentResponse,
+  ImportTicketsMultipartOptions,
+} from '@/types/frontend-types'
 
-import { getApiUrl } from './api-endpoints'
+import { getApiUrl, API_ENDPOINTS } from './api-endpoints'
 import { logger } from './logger'
 import { formatApiConnectionError } from './api-errors'
+import {
+  normalizeTicket,
+  normalizeTicketList,
+  normalizeTicketType,
+  normalizeTicketTypeList,
+} from './normalize-ticket-api'
 
 const API_URL = getApiUrl()
+
+function createTicketImportFormData(file: File, options?: ImportTicketsMultipartOptions): FormData {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (!options) return formData
+  if (options.ticketTypeId) {
+    formData.append('ticketTypeId', options.ticketTypeId)
+    return formData
+  }
+  if (options.catalogDuration) {
+    formData.append('catalogDuration', options.catalogDuration)
+  }
+  return formData
+}
+
+/** POST import CSV : route canonique `/admin/tickets/...`, repli 404 sur `/tickets/admin/...`. */
+async function postAdminTicketImportMultipart(
+  file: File,
+  options: ImportTicketsMultipartOptions | undefined,
+  token: string | null,
+  primaryPath: string,
+  legacyPath: string,
+): Promise<Response> {
+  const headers: HeadersInit = {
+    ...(token && { Authorization: `Bearer ${token}` }),
+  }
+  let response = await fetchApi(`${API_URL}${primaryPath}`, {
+    method: 'POST',
+    body: createTicketImportFormData(file, options),
+    headers,
+  })
+  if (response.status === 404) {
+    response = await fetchApi(`${API_URL}${legacyPath}`, {
+      method: 'POST',
+      body: createTicketImportFormData(file, options),
+      headers,
+    })
+  }
+  return response
+}
 
 type TicketImportRecommendations = {
   recommendations: Array<{
@@ -262,6 +314,30 @@ export const apiClient = {
         body: JSON.stringify(data),
       })
     },
+
+    /** Un seul `checktransaction` côté serveur — à relancer si Kelpay est encore en attente. */
+    verifyKelpay: async (paymentId: string): Promise<KelpayVerifyPaymentResponse> => {
+      return apiRequest<KelpayVerifyPaymentResponse>(`/payments/${paymentId}/kelpay/verify`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+    },
+
+    /** Idempotent : active la vente si Kelpay a confirmé ; `409` si pas encore prêt. */
+    confirmKelpay: async (paymentId: string): Promise<KelpayConfirmPaymentResponse> => {
+      return apiRequest<KelpayConfirmPaymentResponse>(`/payments/${paymentId}/kelpay/confirm`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+    },
+
+    /** Annule un paiement KELPAY encore en attente et libère la réservation côté serveur (si implémenté). */
+    cancelKelpay: async (paymentId: string): Promise<Payment> => {
+      return apiRequest<Payment>(`/payments/${paymentId}/kelpay/cancel`, {
+        method: 'POST',
+        body: JSON.stringify({}),
+      })
+    },
   },
 
   dashboard: {
@@ -281,67 +357,146 @@ export const apiClient = {
   tickets: {
     list: async (status?: TicketStatus): Promise<Ticket[]> => {
       const query = status ? `?status=${status}` : ''
-      return apiRequest<Ticket[]>(`/tickets${query}`)
+      const raw = await apiRequest<Ticket[]>(`/tickets${query}`)
+      return normalizeTicketList(raw)
     },
 
     getAvailable: async (): Promise<Ticket[]> => {
-      return apiRequest<Ticket[]>('/tickets/available')
+      const raw = await apiRequest<Ticket[]>('/tickets/available')
+      return normalizeTicketList(raw)
     },
 
     getTypes: async (): Promise<TicketType[]> => {
-      return apiRequest<TicketType[]>('/tickets/types')
+      const raw = await apiRequest<TicketType[]>('/tickets/types')
+      const rawList = Array.isArray(raw) ? raw : []
+      if (!Array.isArray(raw)) {
+        logger.warn('API tickets.getTypes: réponse inattendue (pas un tableau)', { typeof: typeof raw })
+      }
+      const first = rawList[0] as unknown as Record<string, unknown> | undefined
+      logger.debug('API tickets.getTypes: acquisition (brut)', {
+        endpoint: '/tickets/types',
+        rawIsArray: Array.isArray(raw),
+        count: rawList.length,
+        sampleKeys: first ? Object.keys(first) : [],
+        samplePrice: first?.price,
+        samplePriceType: first?.price === undefined || first?.price === null ? 'absent' : typeof first.price,
+      })
+      const list = normalizeTicketTypeList(raw)
+      logger.debug('API tickets.getTypes: après normalisation', {
+        count: list.length,
+        types: list.map((t) => ({
+          id: t.id,
+          name: t.name,
+          price: t.price,
+          availableCount: t.availableCount,
+          isActive: t.isActive,
+        })),
+      })
+      return list
     },
 
     getTypeById: async (typeId: string): Promise<TicketType> => {
-      return apiRequest<TicketType>(`/tickets/types/${typeId}`)
+      const raw = await apiRequest<TicketType>(`/tickets/types/${typeId}`)
+      const r = raw as unknown as Record<string, unknown>
+      logger.debug('API tickets.getTypeById: acquisition', {
+        typeId,
+        keys: raw && typeof raw === 'object' ? Object.keys(raw as object) : [],
+        priceBrut: r?.price,
+        priceType: r?.price === undefined || r?.price === null ? 'absent' : typeof r.price,
+      })
+      const normalized = normalizeTicketType(raw)
+      logger.debug('API tickets.getTypeById: après normalisation', {
+        typeId,
+        id: normalized.id,
+        name: normalized.name,
+        price: normalized.price,
+        availableCount: normalized.availableCount,
+      })
+      return normalized
     },
 
     getByType: async (typeId: string): Promise<Ticket[]> => {
-      return apiRequest<Ticket[]>(`/tickets/type/${typeId}`)
+      const raw = await apiRequest<Ticket[]>(`/tickets/type/${typeId}`)
+      const rawList = Array.isArray(raw) ? raw : []
+      if (!Array.isArray(raw)) {
+        logger.warn('API tickets.getByType: réponse inattendue (pas un tableau)', { typeId, typeof: typeof raw })
+      }
+      const first = rawList[0] as unknown as Record<string, unknown> | undefined
+      logger.debug('API tickets.getByType: acquisition (brut)', {
+        typeId,
+        endpoint: `/tickets/type/${typeId}`,
+        rawIsArray: Array.isArray(raw),
+        count: rawList.length,
+        sampleKeys: first ? Object.keys(first) : [],
+        samplePrice: first?.price,
+        samplePriceType: first?.price === undefined || first?.price === null ? 'absent' : typeof first.price,
+        sampleStatus: first?.status,
+        sampleProfile: first?.profile,
+      })
+      const list = normalizeTicketList(raw)
+      logger.debug('API tickets.getByType: après normalisation', {
+        typeId,
+        count: list.length,
+        sample: list.slice(0, 12).map((t) => ({
+          id: t.id,
+          status: t.status,
+          profile: t.profile,
+          price: t.price,
+        })),
+      })
+      return list
     },
 
     getById: async (id: string): Promise<Ticket> => {
-      return apiRequest<Ticket>(`/tickets/${id}`)
+      const raw = await apiRequest<Ticket>(`/tickets/${id}`)
+      return normalizeTicket(raw)
     },
 
     purchase: async (data: TicketPurchaseRequest): Promise<TicketPurchaseResponse> => {
-      return apiRequest<TicketPurchaseResponse>('/tickets/purchase', {
+      const raw = await apiRequest<TicketPurchaseResponse>('/tickets/purchase', {
         method: 'POST',
         body: JSON.stringify(data),
       })
+      return {
+        ...raw,
+        ticket: normalizeTicket(raw.ticket),
+      }
     },
 
     mine: async (): Promise<Ticket[]> => {
-      return apiRequest<Ticket[]>('/tickets/me')
+      const raw = await apiRequest<Ticket[]>('/tickets/me')
+      return normalizeTicketList(raw)
     },
 
     reserve: async (id: string): Promise<Ticket> => {
-      return apiRequest<Ticket>(`/tickets/${id}/reserve`, {
+      const raw = await apiRequest<Ticket>(`/tickets/${id}/reserve`, {
         method: 'POST',
       })
+      return normalizeTicket(raw)
     },
 
     release: async (id: string): Promise<Ticket> => {
-      return apiRequest<Ticket>(`/tickets/${id}/release`, {
+      const raw = await apiRequest<Ticket>(`/tickets/${id}/release`, {
         method: 'POST',
       })
+      return normalizeTicket(raw)
     },
   },
 
   admin: {
     tickets: {
-      importRecommendations: async (file: File): Promise<TicketImportRecommendations> => {
+      importRecommendations: async (
+        file: File,
+        options?: ImportTicketsMultipartOptions,
+      ): Promise<TicketImportRecommendations> => {
         const token = getToken()
-        const formData = new FormData()
-        formData.append('file', file)
-
-        const response = await fetchApi(`${API_URL}/tickets/admin/import/recommendations`, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        })
+        const response = await postAdminTicketImportMultipart(
+          file,
+          options,
+          token,
+          API_ENDPOINTS.adminTickets.importRecommendations,
+          API_ENDPOINTS.ticketsAdmin.importRecommendations,
+        )
 
         if (!response.ok) {
           let message = `Erreur ${response.status}`
@@ -365,18 +520,18 @@ export const apiClient = {
         }
       },
 
-      import: async (file: File): Promise<{ imported: number; failed: number; errors: string[] }> => {
+      import: async (
+        file: File,
+        options?: ImportTicketsMultipartOptions,
+      ): Promise<{ imported: number; failed: number; errors: string[] }> => {
         const token = getToken()
-        const formData = new FormData()
-        formData.append('file', file)
-
-        const response = await fetchApi(`${API_URL}/tickets/admin/import`, {
-          method: 'POST',
-          body: formData,
-          headers: {
-            ...(token && { Authorization: `Bearer ${token}` }),
-          },
-        })
+        const response = await postAdminTicketImportMultipart(
+          file,
+          options,
+          token,
+          API_ENDPOINTS.adminTickets.import,
+          API_ENDPOINTS.ticketsAdmin.import,
+        )
 
         if (!response.ok) {
           let message = `Erreur ${response.status}`
@@ -401,7 +556,8 @@ export const apiClient = {
       },
 
       list: async (): Promise<Ticket[]> => {
-        return apiRequest<Ticket[]>('/admin/tickets')
+        const raw = await apiRequest<Ticket[]>('/admin/tickets')
+        return normalizeTicketList(raw)
       },
 
       getStats: async (): Promise<{
@@ -415,10 +571,11 @@ export const apiClient = {
       },
 
       updatePrice: async (ticketId: string, price: number): Promise<Ticket> => {
-        return apiRequest<Ticket>(`/admin/tickets/${ticketId}/price`, {
+        const raw = await apiRequest<Ticket>(`/admin/tickets/${ticketId}/price`, {
           method: 'PUT',
           body: JSON.stringify({ price }),
         })
+        return normalizeTicket(raw)
       },
 
       delete: async (ticketId: string): Promise<{ message?: string }> => {

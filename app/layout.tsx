@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { Plus_Jakarta_Sans, Syne } from 'next/font/google'
-import { Toaster } from 'react-hot-toast'
+import { AppToaster } from '@/components/AppToaster'
 import { AuthProvider } from '@/contexts/AuthContext'
 import './globals.css'
 
@@ -31,20 +31,7 @@ export default function RootLayout({
       <body className="font-sans min-h-screen">
         <AuthProvider>
           {children}
-          <Toaster
-            position="top-right"
-            toastOptions={{
-              duration: 4000,
-              className:
-                '!rounded-xl !border !border-ink-200/80 !bg-white/95 !backdrop-blur-md !shadow-card !text-ink-800 !text-sm !font-medium',
-              success: {
-                iconTheme: { primary: '#0891b2', secondary: '#fff' },
-              },
-              error: {
-                iconTheme: { primary: '#dc2626', secondary: '#fff' },
-              },
-            }}
-          />
+          <AppToaster />
         </AuthProvider>
       </body>
     </html>

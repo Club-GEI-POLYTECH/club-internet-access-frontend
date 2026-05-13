@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { authService } from '@/services/api'
-import toast from 'react-hot-toast'
+import { notify } from '@/lib/notify'
 import { Mail, ArrowLeft } from 'lucide-react'
 
 export default function ForgotPassword() {
@@ -18,11 +18,11 @@ export default function ForgotPassword() {
     try {
       await authService.forgotPassword(email)
       setSent(true)
-      toast.success('Un email de réinitialisation a été envoyé!')
+      notify.success('Code envoyé', 'Consultez votre boîte e-mail (et les indésirables).')
     } catch (error: any) {
       // On affiche toujours un message de succès pour des raisons de sécurité
       setSent(true)
-      toast.success('Si cet email existe, un lien de réinitialisation a été envoyé')
+      notify.success('Si cette adresse existe', 'Un lien de réinitialisation vient d’y être envoyé.')
     } finally {
       setLoading(false)
     }
