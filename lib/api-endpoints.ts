@@ -40,6 +40,8 @@ export const API_ENDPOINTS = {
   // --- Auth ---
   auth: {
     register: '/auth/register',
+    /** Envoi du code e-mail (inscription) — voir doc backend */
+    registerSendEmailCode: '/auth/register/send-email-code',
     login: '/auth/login',
     profile: '/auth/profile',
     forgotPassword: '/auth/forgot-password',

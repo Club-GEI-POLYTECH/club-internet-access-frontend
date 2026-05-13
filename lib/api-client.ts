@@ -159,6 +159,17 @@ export const apiClient = {
       })
     },
 
+    /**
+     * Demande l’envoi d’un code à 6 chiffres sur l’e-mail (anti-bot / adresses fictives).
+     * Backend attendu : POST /auth/register/send-email-code — corps `{ "email": "..." }`
+     */
+    sendRegisterEmailCode: async (email: string): Promise<{ message?: string }> => {
+      return apiRequest<{ message?: string }>('/auth/register/send-email-code', {
+        method: 'POST',
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      })
+    },
+
     getProfile: async (): Promise<User> => {
       return apiRequest<User>('/auth/profile')
     },

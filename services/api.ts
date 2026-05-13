@@ -69,6 +69,11 @@ export const authService = {
     return response.data
   },
 
+  sendRegisterEmailCode: async (email: string) => {
+    const response = await api.post('/auth/register/send-email-code', { email: email.trim().toLowerCase() })
+    return response.data
+  },
+
   getProfile: async () => {
     const response = await api.get('/auth/profile')
     return response.data

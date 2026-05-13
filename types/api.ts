@@ -46,6 +46,8 @@ export interface RegisterRequest {
   lastName: string
   phone?: string
   role?: UserRole
+  /** Code à 6 chiffres reçu par e-mail — requis si le backend impose la vérification avant inscription */
+  emailVerificationCode?: string
 }
 
 export interface ForgotPasswordRequest {

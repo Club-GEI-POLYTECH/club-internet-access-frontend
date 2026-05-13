@@ -1,14 +1,15 @@
 'use client'
 
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { UserPlus, Sparkles } from 'lucide-react'
+import { UserPlus, Sparkles, Mail } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/contexts/AuthContext'
 import type { RegisterRequest } from '@/types/api'
 import { logger } from '@/lib/logger'
+import { isSixDigitVerificationCode, isValidRegistrationEmail } from '@/lib/register-email'
 
 function RegisterPageContent() {
   const router = useRouter()
@@ -18,15 +19,75 @@ function RegisterPageContent() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  const [emailVerificationCode, setEmailVerificationCode] = useState('')
   const [phone, setPhone] = useState('')
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [sendingCode, setSendingCode] = useState(false)
+  const [codeSent, setCodeSent] = useState(false)
+  const [resendCooldown, setResendCooldown] = useState(0)
 
   const redirectTo = searchParams.get('redirectTo')
 
+  useEffect(() => {
+    if (resendCooldown <= 0) return
+    const id = window.setInterval(() => {
+      setResendCooldown((s) => (s <= 1 ? 0 : s - 1))
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [resendCooldown])
+
+  const handleEmailChange = (value: string) => {
+    setEmail(value)
+    setCodeSent(false)
+    setEmailVerificationCode('')
+    setResendCooldown(0)
+  }
+
+  const handleSendCode = async () => {
+    const trimmed = email.trim().toLowerCase()
+    if (!isValidRegistrationEmail(trimmed)) {
+      toast.error('Adresse e-mail invalide')
+      return
+    }
+    setSendingCode(true)
+    logger.log('Register: demande code e-mail', { email: trimmed })
+    try {
+      await apiClient.auth.sendRegisterEmailCode(trimmed)
+      setEmail(trimmed)
+      setCodeSent(true)
+      setResendCooldown(60)
+      toast.success('Un code à 6 chiffres a été envoyé à votre adresse e-mail.')
+      logger.info('Register: code e-mail demandé', { email: trimmed })
+    } catch (error: unknown) {
+      logger.error('Register: échec envoi code', error)
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'Impossible d’envoyer le code. Vérifiez que le backend expose POST /auth/register/send-email-code'
+      toast.error(message)
+    } finally {
+      setSendingCode(false)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    const trimmedEmail = email.trim().toLowerCase()
+    if (!isValidRegistrationEmail(trimmedEmail)) {
+      toast.error('Adresse e-mail invalide')
+      return
+    }
+    if (!isSixDigitVerificationCode(emailVerificationCode)) {
+      toast.error('Entrez le code à 6 chiffres reçu par e-mail')
+      return
+    }
+    if (!codeSent) {
+      toast.error('Demandez d’abord un code de vérification pour cet e-mail')
+      return
+    }
 
     if (password !== confirmPassword) {
       toast.error('Les mots de passe ne correspondent pas')
@@ -34,22 +95,23 @@ function RegisterPageContent() {
     }
 
     setLoading(true)
-    logger.log('Register: soumission du formulaire', { email })
+    logger.log('Register: soumission du formulaire', { email: trimmedEmail })
 
     try {
       const payload: RegisterRequest = {
-        email,
+        email: trimmedEmail,
         password,
         firstName,
         lastName,
         phone: phone || undefined,
+        emailVerificationCode: emailVerificationCode.trim(),
       }
 
       await apiClient.auth.register(payload)
       toast.success('Compte créé avec succès, connexion en cours...')
-      logger.info('Register: compte créé, tentative de connexion', { email })
+      logger.info('Register: compte créé, tentative de connexion', { email: trimmedEmail })
 
-      await login(email, password)
+      await login(trimmedEmail, password)
 
       const target = redirectTo || '/dashboard'
       router.push(target)
@@ -90,10 +152,76 @@ function RegisterPageContent() {
                 <UserPlus className="h-8 w-8" strokeWidth={2} />
               </div>
               <h2 className="font-display text-2xl font-bold text-ink-900">Créer un compte</h2>
-              <p className="mt-2 text-sm text-ink-500">Accédez à l&apos;achat de tickets et à votre espace personnel</p>
+              <p className="mt-2 text-sm text-ink-500">
+                Vérification par e-mail (code à 6 chiffres), puis inscription en base — limite les faux comptes.
+              </p>
             </div>
 
             <form onSubmit={handleSubmit} className="relative mt-8 space-y-4">
+              <div>
+                <label htmlFor="email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  E-mail *
+                </label>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => handleEmailChange(e.target.value)}
+                    className="input sm:flex-1"
+                    placeholder="vous@unikin.cd"
+                    autoComplete="email"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => void handleSendCode()}
+                    disabled={sendingCode || resendCooldown > 0 || !isValidRegistrationEmail(email.trim())}
+                    className="btn btn-secondary shrink-0 whitespace-nowrap px-4 py-2.5 text-sm disabled:opacity-50"
+                    aria-label={
+                      codeSent
+                        ? 'Renvoyer le code de vérification par e-mail'
+                        : 'Envoyer un code de vérification à 6 chiffres par e-mail'
+                    }
+                  >
+                    {sendingCode ? (
+                      'Envoi…'
+                    ) : resendCooldown > 0 ? (
+                      `Renvoyer (${resendCooldown}s)`
+                    ) : codeSent ? (
+                      'Renvoyer le code'
+                    ) : (
+                      <>
+                        <Mail className="mr-1.5 inline h-4 w-4" />
+                        Envoyer le code
+                      </>
+                    )}
+                  </button>
+                </div>
+                <p className="mt-1.5 text-xs text-ink-500">
+                  Un code à 6 chiffres vous est envoyé ; saisissez-le ci-dessous avant de créer le compte.
+                </p>
+              </div>
+
+              <div>
+                <label htmlFor="email-code" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Code e-mail (6 chiffres) *
+                </label>
+                <input
+                  id="email-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="[0-9]{6}"
+                  maxLength={6}
+                  required
+                  value={emailVerificationCode}
+                  onChange={(e) => setEmailVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="input font-mono tracking-[0.35em]"
+                  placeholder="000000"
+                />
+              </div>
+
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label htmlFor="firstName" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
@@ -125,22 +253,6 @@ function RegisterPageContent() {
                     autoComplete="family-name"
                   />
                 </div>
-              </div>
-
-              <div>
-                <label htmlFor="email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-                  Email
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="input"
-                  placeholder="vous@unikin.cd"
-                  autoComplete="email"
-                />
               </div>
 
               <div>
