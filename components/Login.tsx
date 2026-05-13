@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
 import toast from 'react-hot-toast'
-import { Wifi } from 'lucide-react'
+import { Wifi, Sparkles, ArrowRight } from 'lucide-react'
 
 export default function Login() {
   const [email, setEmail] = useState('')
@@ -17,9 +17,13 @@ export default function Login() {
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo')
 
-  // Vérifier si l'utilisateur est déjà authentifié
   useEffect(() => {
-    if (user && typeof window !== 'undefined' && window.location.protocol === 'http:' && process.env.NODE_ENV === 'production') {
+    if (
+      user &&
+      typeof window !== 'undefined' &&
+      window.location.protocol === 'http:' &&
+      process.env.NODE_ENV === 'production'
+    ) {
       logger.info('Login: utilisateur déjà connecté en HTTP, redirection HTTPS')
       const httpsUrl = window.location.href.replace('http://', 'https://').replace('/login', '/')
       window.location.href = httpsUrl
@@ -36,93 +40,150 @@ export default function Login() {
       toast.success('Connexion réussie!')
       logger.info('Login: connexion réussie, redirection')
 
-      if (typeof window !== 'undefined' && window.location.protocol === 'http:' && process.env.NODE_ENV === 'production') {
+      if (
+        typeof window !== 'undefined' &&
+        window.location.protocol === 'http:' &&
+        process.env.NODE_ENV === 'production'
+      ) {
         const httpsUrl = window.location.href.replace('http://', 'https://')
         window.location.href = httpsUrl.replace('/login', '/')
       } else {
         router.push(redirectTo || '/')
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('Login: échec connexion', error)
-      toast.error(error.response?.data?.message || 'Erreur de connexion')
+      const msg =
+        error && typeof error === 'object' && 'response' in error
+          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
+          : undefined
+      toast.error(msg || 'Erreur de connexion')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-700 px-4">
-      <div className="max-w-md w-full animate-scale-in">
-        <div className="bg-white rounded-2xl shadow-xl p-8 transition-shadow duration-300 hover:shadow-2xl">
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4 transition-transform duration-300 hover:scale-110">
-              <Wifi className="h-8 w-8 text-primary-600" />
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Club Internet Access
-            </h1>
-            <p className="text-gray-600">Université de Kinshasa - UNIKIN</p>
+    <div className="relative min-h-screen overflow-hidden bg-ink-950">
+      <div className="pointer-events-none absolute inset-0 bg-mesh-auth opacity-90" />
+      <div className="pointer-events-none absolute -left-32 top-1/4 h-96 w-96 rounded-full bg-primary-500/20 blur-3xl" />
+      <div className="pointer-events-none absolute -right-20 bottom-0 h-80 w-80 rounded-full bg-indigo-500/15 blur-3xl" />
+
+      <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col lg:flex-row">
+        {/* Panneau marque */}
+        <div className="relative flex flex-1 flex-col justify-center px-8 py-12 lg:px-14 lg:py-16">
+          <div className="mb-8 inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary-200 backdrop-blur-md">
+            <Sparkles className="h-3.5 w-3.5 text-primary-300" />
+            Espace sécurisé
           </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input"
-                placeholder="admin@unikin.cd"
-              />
+          <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-[2.75rem] lg:leading-[1.1]">
+            Connexion Wi‑Fi
+            <span className="mt-2 block bg-gradient-to-r from-primary-200 via-white to-indigo-200 bg-clip-text text-transparent">
+              simple &amp; rapide
+            </span>
+          </h1>
+          <p className="mt-6 max-w-md text-base leading-relaxed text-slate-300">
+            Accédez à la vente de tickets, à vos achats et à votre tableau de bord. Un compte est nécessaire pour
+            acheter un forfait.
+          </p>
+          <div className="mt-10 hidden items-center gap-6 text-sm text-slate-400 lg:flex">
+            <div className="flex items-center gap-2">
+              <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
+              Service UNIKIN
             </div>
-
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Mot de passe
-              </label>
-              <input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input"
-                placeholder="••••••••"
-              />
+            <div className="h-4 w-px bg-white/15" />
+            <div className="flex items-center gap-2">
+              <Wifi className="h-4 w-4 text-primary-400" />
+              Forfaits 24h · 7j · 30j
             </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full btn btn-primary py-3 text-base font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-transform duration-300 hover:scale-[1.02] active:scale-[0.98]"
-            >
-              {loading ? 'Connexion...' : 'Se connecter'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center">
-            <Link
-              href="/forgot-password"
-              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
-            >
-              Mot de passe oublié?
-            </Link>
           </div>
+        </div>
 
-          <div className="mt-4 text-center text-sm text-gray-500">
-            <p>
-              Pas encore de compte ?{' '}
-              <Link
-                href={redirectTo ? `/register?redirectTo=${encodeURIComponent(redirectTo)}` : '/register'}
-                className="text-primary-600 hover:text-primary-700 font-medium"
-              >
-                Créer un compte
-              </Link>
-            </p>
+        {/* Formulaire */}
+        <div className="flex flex-1 items-center justify-center px-4 pb-16 pt-4 sm:px-8 lg:px-10 lg:pb-0 lg:pt-0">
+          <div className="w-full max-w-md animate-scale-in">
+            <div className="relative overflow-hidden rounded-3xl border border-white/20 bg-white/95 p-8 shadow-2xl shadow-ink-950/25 backdrop-blur-xl sm:p-10">
+              <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full bg-primary-400/25 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-indigo-400/20 blur-2xl" />
+
+              <div className="relative text-center">
+                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow">
+                  <Wifi className="h-8 w-8" strokeWidth={2} />
+                </div>
+                <h2 className="font-display text-2xl font-bold text-ink-900">Bon retour</h2>
+                <p className="mt-2 text-sm text-ink-500">Université de Kinshasa — Club Internet Access</p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="relative mt-8 space-y-5">
+                <div>
+                  <label htmlFor="email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    Email
+                  </label>
+                  <input
+                    id="email"
+                    type="email"
+                    required
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="input"
+                    placeholder="vous@unikin.cd"
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="password"
+                    className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500"
+                  >
+                    Mot de passe
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="input"
+                    placeholder="••••••••"
+                    autoComplete="current-password"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn btn-primary group mt-2 w-full py-3.5 text-base"
+                >
+                  {loading ? (
+                    <span className="inline-flex items-center gap-2">
+                      <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                      Connexion…
+                    </span>
+                  ) : (
+                    <>
+                      Se connecter
+                      <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              <div className="relative mt-8 text-center">
+                <Link href="/forgot-password" className="text-sm font-semibold text-primary-600 hover:text-primary-700">
+                  Mot de passe oublié ?
+                </Link>
+              </div>
+
+              <p className="relative mt-6 text-center text-sm text-ink-500">
+                Pas encore de compte ?{' '}
+                <Link
+                  href={redirectTo ? `/register?redirectTo=${encodeURIComponent(redirectTo)}` : '/register'}
+                  className="font-semibold text-primary-600 hover:text-primary-800"
+                >
+                  Créer un compte
+                </Link>
+              </p>
+            </div>
           </div>
         </div>
       </div>

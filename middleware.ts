@@ -14,7 +14,7 @@ export function middleware(request: NextRequest) {
 
   console.log(`${LOG_PREFIX} requête`, { pathname, isHttps })
 
-  const publicRoutes = ['/login', '/forgot-password', '/reset-password', '/home']
+  const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password']
   const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
 
   if (isPublicRoute) {

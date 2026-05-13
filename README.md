@@ -1,6 +1,6 @@
-# 🌐 Club Internet Access - Frontend
+# Club Internet Access — Frontend
 
-Interface web Next.js pour la gestion d'accès Wi-Fi MikroTik.
+Interface web Next.js pour la **vente de tickets Wi‑Fi** (catalogue, achat KELPAY ou espèces, mes tickets, administration des imports CSV).
 
 ## 🚀 Déploiement sur Vercel
 
@@ -86,35 +86,33 @@ NEXT_PUBLIC_API_URL=http://localhost:4000/api
 - `components/`: Composants réutilisables
 - `contexts/`: Contextes React (Auth, etc.)
 
-## 🏗️ Architecture
+## 🏗️ Architecture (aperçu)
 
 ```
 app/
-├── layout.tsx          # Layout principal
-├── page.tsx            # Page d'accueil (Dashboard)
-├── login/
-│   └── page.tsx        # Page de connexion
-├── wifi-accounts/
-│   └── page.tsx        # Gestion des comptes Wi-Fi
+├── layout.tsx
+├── page.tsx                 # Redirection / accueil
+├── login/                   # Connexion
+├── register/
+├── buy-ticket/              # Catalogue + achat (KELPAY / espèces)
+├── my-tickets/              # Tickets de l’utilisateur connecté
+├── dashboard/               # Tableaux de bord par rôle
+├── admin/tickets/           # Admin / agent — import & gestion
 ├── payments/
-│   └── page.tsx        # Gestion des paiements
-├── sessions/
-│   └── page.tsx        # Sessions actives
-├── bandwidth/
-│   └── page.tsx        # Analyse de bande passante
 └── users/
-    └── page.tsx        # Gestion des utilisateurs
 
 components/
-├── Layout.tsx          # Layout avec sidebar
-├── PrivateRoute.tsx    # Protection des routes
-└── Dashboard.tsx       # Composant Dashboard
+├── Layout.tsx
+└── …
 
-contexts/
-└── AuthContext.tsx     # Context d'authentification
+lib/
+├── api-client.ts            # Client fetch recommandé
+├── frontend-api-client.ts   # Exemple KELPAY (délègue à api-client)
+└── api.ts
 
-services/
-└── api.ts              # Services API
+types/
+├── api.ts
+└── frontend-types.ts        # Types initiation KELPAY
 ```
 
 ## 🔗 Backend
@@ -137,17 +135,30 @@ Le backend est dans un repository séparé: `club-internet-access-backend`
 
 Le projet offre **deux options** pour les appels API :
 
-1. **Client API réutilisable** (`lib/api-client.ts`) - **Recommandé**
+1. **Client API réutilisable** (`lib/api-client.ts`) — **recommandé**
    ```typescript
    import { apiClient } from '@/lib/api-client'
-   const accounts = await apiClient.wifiAccounts.list()
+   const types = await apiClient.tickets.getTypes()
    ```
 
-2. **Services Axios** (`services/api.ts`) - Compatible existant
+2. **Services Axios** (`services/api.ts`) — compatible existant
    ```typescript
-   import { wifiAccountsService } from '@/services/api'
-   const accounts = await wifiAccountsService.getAll()
+   import { paymentsService } from '@/services/api'
+   const list = await paymentsService.getAll()
    ```
+
+## Endpoints utiles (API)
+
+Référence rapide alignée sur la collection Postman (`/api/...`) :
+
+| Usage | Méthode & chemin |
+|--------|------------------|
+| Initier un paiement Mobile Money (KELPAY) | `POST /payments/initiate` (Bearer JWT) |
+| Suivre un paiement | `GET /payments/{paymentId}` (polling ~3–5 s) |
+| Achat direct (ex. espèces) | `POST /tickets/purchase` |
+| Mes tickets (après paiement) | `GET /tickets/me` (Bearer JWT) |
+
+**Guide détaillé** : [docs/FRONTEND_PAIEMENTS_KELPAY.md](./docs/FRONTEND_PAIEMENTS_KELPAY.md) (flux KELPAY vs cash, corps JSON, statuts, sécurité).
 
 ## 📚 Documentation
 
@@ -165,9 +176,10 @@ Pour le déploiement sur site avec Starlink + MikroTik + AP Cisco :
 
 Pour intégrer avec le backend API :
 
-- **[Intégration Backend](./docs/INTEGRATION_BACKEND.md)** : Guide complet d'intégration
+- **[Paiements KELPAY (frontend)](./docs/FRONTEND_PAIEMENTS_KELPAY.md)** : initiation, polling, statuts, `GET /tickets/me`
+- **[Intégration Backend](./docs/INTEGRATION_BACKEND.md)** : guide complet d'intégration
 - **[Vérification Backend](./docs/VERIFICATION_BACKEND.md)** : ⚠️ **IMPORTANT** - Checklist des vérifications backend après implémentation des dashboards par rôle
-- **Types TypeScript** : `types/api.ts`
+- **Types TypeScript** : `types/api.ts`, `types/frontend-types.ts`
 - **Service API** : `services/api.ts` et `lib/api.ts`
 - **Hooks personnalisés** : `hooks/useApi.ts`
 

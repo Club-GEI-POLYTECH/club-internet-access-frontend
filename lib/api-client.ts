@@ -1,11 +1,8 @@
 /**
- * Client API réutilisable pour Next.js
- * 
- * Ce fichier fournit une interface client complète pour toutes les APIs backend
- * 
+ * Client API réutilisable pour Next.js (vente de tickets, paiements, dashboard).
+ *
  * Usage:
  * import { apiClient } from '@/lib/api-client';
- * const accounts = await apiClient.wifiAccounts.list();
  */
 
 import type {
@@ -13,24 +10,12 @@ import type {
   LoginResponse,
   RegisterRequest,
   User,
-  WiFiAccount,
-  CreateWiFiAccountRequest,
   Payment,
   CreatePaymentRequest,
   CompletePaymentRequest,
   UpdatePaymentStatusRequest,
-  Session,
-  SessionStatistics,
   DashboardStats,
   ChartData,
-  MikroTikStatus,
-  MikroTikHotspotUser,
-  MikroTikActiveUser,
-  CreateMikroTikUserRequest,
-  BandwidthRealtime,
-  BandwidthStats,
-  UserBandwidth,
-  BandwidthHistory,
   ApiError,
   Ticket,
   TicketStatus,
@@ -38,54 +23,54 @@ import type {
   TicketPurchaseRequest,
   TicketPurchaseResponse,
 } from '@/types/api'
+import type { InitiateKelpayPaymentRequest, InitiateKelpayPaymentResponse } from '@/types/frontend-types'
 
 import { getApiUrl } from './api-endpoints'
 import { logger } from './logger'
 
-//const API_URL = getApiUrl()
-const API_URL = process.env.NEXT_PUBLIC_API_URL
-console.log('API_URL', API_URL)
+const API_URL = getApiUrl()
 
-/**
- * Fonction utilitaire pour gérer les tokens
- */
+type TicketImportRecommendations = {
+  recommendations: Array<{
+    durationKey: string
+    label: string
+    count: number
+    recommendedPrice: number
+    action: 'use_existing' | 'create_new' | string
+  }>
+  totalLines?: number
+  validLines?: number
+  invalidLines?: number
+}
+
 const getToken = (): string | null => {
   if (typeof window === 'undefined') return null
-  
-  // Option 1: Cookies (recommandé)
+
   const cookies = document.cookie.split(';')
   const tokenCookie = cookies.find(c => c.trim().startsWith('token='))
   if (tokenCookie) {
     return tokenCookie.split('=')[1]
   }
-  
-  // Option 2: localStorage (fallback)
+
   return localStorage.getItem('token')
 }
 
 const setToken = (token: string): void => {
   if (typeof window === 'undefined') return
-  
-  // Option 1: Cookies
+
   document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`
-  
-  // Option 2: localStorage (fallback)
+
   localStorage.setItem('token', token)
 }
 
 const removeToken = (): void => {
   if (typeof window === 'undefined') return
-  
-  // Supprimer cookie
+
   document.cookie = 'token=; path=/; max-age=0'
-  
-  // Supprimer localStorage
+
   localStorage.removeItem('token')
 }
 
-/**
- * Fonction de base pour les requêtes API
- */
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -108,7 +93,6 @@ async function apiRequest<T>(
 
   logger.log('API: réponse', { endpoint, status: response.status, ok: response.ok })
 
-  // Gestion des erreurs HTTP
   if (response.status === 401) {
     logger.warn('API: 401 Unauthorized, déconnexion et redirection /login')
     removeToken()
@@ -136,8 +120,8 @@ async function apiRequest<T>(
     }))
     logger.error('API: erreur', { endpoint, status: response.status }, error)
     throw new Error(
-      Array.isArray(error.message) 
-        ? error.message.join(', ') 
+      Array.isArray(error.message)
+        ? error.message.join(', ')
         : error.message || `Erreur ${response.status}`
     )
   }
@@ -147,13 +131,7 @@ async function apiRequest<T>(
   return data as T
 }
 
-/**
- * Client API avec toutes les méthodes (aligné sur les routes backend)
- */
 export const apiClient = {
-  // ============================================
-  // APP (health, root)
-  // ============================================
   app: {
     health: async (): Promise<{ status?: string }> => {
       return apiRequest<{ status?: string }>('/health')
@@ -164,9 +142,6 @@ export const apiClient = {
     },
   },
 
-  // ============================================
-  // AUTHENTIFICATION
-  // ============================================
   auth: {
     login: async (data: LoginRequest): Promise<LoginResponse> => {
       const response = await apiRequest<LoginResponse>('/auth/login', {
@@ -210,39 +185,6 @@ export const apiClient = {
     },
   },
 
-  // ============================================
-  // WIFI ACCOUNTS
-  // ============================================
-  wifiAccounts: {
-    list: async (): Promise<WiFiAccount[]> => {
-      return apiRequest<WiFiAccount[]>('/wifi-accounts')
-    },
-
-    getActive: async (): Promise<WiFiAccount[]> => {
-      return apiRequest<WiFiAccount[]>('/wifi-accounts/active')
-    },
-
-    getById: async (id: string): Promise<WiFiAccount> => {
-      return apiRequest<WiFiAccount>(`/wifi-accounts/${id}`)
-    },
-
-    create: async (data: CreateWiFiAccountRequest): Promise<WiFiAccount> => {
-      return apiRequest<WiFiAccount>('/wifi-accounts', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      })
-    },
-
-    delete: async (id: string): Promise<{ message: string }> => {
-      return apiRequest<{ message: string }>(`/wifi-accounts/${id}`, {
-        method: 'DELETE',
-      })
-    },
-  },
-
-  // ============================================
-  // PAYMENTS
-  // ============================================
   payments: {
     list: async (): Promise<Payment[]> => {
       return apiRequest<Payment[]>('/payments')
@@ -276,49 +218,20 @@ export const apiClient = {
         body: JSON.stringify({ status }),
       })
     },
-  },
 
-  // ============================================
-  // SESSIONS
-  // ============================================
-  sessions: {
-    list: async (): Promise<Session[]> => {
-      return apiRequest<Session[]>('/sessions')
-    },
-
-    getActive: async (): Promise<Session[]> => {
-      return apiRequest<Session[]>('/sessions/active')
-    },
-
-    getStatistics: async (): Promise<SessionStatistics> => {
-      return apiRequest<SessionStatistics>('/sessions/statistics')
-    },
-
-    sync: async (): Promise<{ message: string }> => {
-      return apiRequest<{ message: string }>('/sessions/sync', {
+    initiateKelpay: async (data: InitiateKelpayPaymentRequest): Promise<InitiateKelpayPaymentResponse> => {
+      return apiRequest<InitiateKelpayPaymentResponse>('/payments/initiate', {
         method: 'POST',
+        body: JSON.stringify(data),
       })
     },
-
-    getByWiFiAccount: async (wifiAccountId: string): Promise<Session[]> => {
-      return apiRequest<Session[]>(`/sessions/wifi-account/${wifiAccountId}`)
-    },
-
-    getById: async (id: string): Promise<Session> => {
-      return apiRequest<Session>(`/sessions/${id}`)
-    },
   },
 
-  // ============================================
-  // DASHBOARD
-  // ============================================
   dashboard: {
-    /** Stats pour l'utilisateur connecté (mon dashboard) */
     getMyStats: async (): Promise<DashboardStats> => {
       return apiRequest<DashboardStats>('/dashboard/my-stats')
     },
 
-    /** Stats globales (admin/agent) */
     getStats: async (): Promise<DashboardStats> => {
       return apiRequest<DashboardStats>('/dashboard/stats')
     },
@@ -328,82 +241,6 @@ export const apiClient = {
     },
   },
 
-  // ============================================
-  // MIKROTIK
-  // ============================================
-  mikrotik: {
-    getStatus: async (): Promise<MikroTikStatus> => {
-      return apiRequest<MikroTikStatus>('/mikrotik/status')
-    },
-
-    createUser: async (data: CreateMikroTikUserRequest): Promise<MikroTikHotspotUser> => {
-      return apiRequest<MikroTikHotspotUser>('/mikrotik/users', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      })
-    },
-
-    listUsers: async (): Promise<MikroTikHotspotUser[]> => {
-      return apiRequest<MikroTikHotspotUser[]>('/mikrotik/users')
-    },
-
-    getUser: async (username: string): Promise<MikroTikHotspotUser> => {
-      return apiRequest<MikroTikHotspotUser>(`/mikrotik/users/${username}`)
-    },
-
-    deleteUser: async (username: string): Promise<{ message: string }> => {
-      return apiRequest<{ message: string }>(`/mikrotik/users/${username}`, {
-        method: 'DELETE',
-      })
-    },
-
-    getActiveUsers: async (): Promise<MikroTikActiveUser[]> => {
-      return apiRequest<MikroTikActiveUser[]>('/mikrotik/active')
-    },
-
-    disconnectUser: async (sessionId: string): Promise<{ message: string }> => {
-      return apiRequest<{ message: string }>(`/mikrotik/active/${sessionId}`, {
-        method: 'DELETE',
-      })
-    },
-
-    disableUser: async (username: string): Promise<{ message: string }> => {
-      return apiRequest<{ message: string }>(`/mikrotik/users/${username}/disable`, {
-        method: 'POST',
-      })
-    },
-
-    enableUser: async (username: string): Promise<{ message: string }> => {
-      return apiRequest<{ message: string }>(`/mikrotik/users/${username}/enable`, {
-        method: 'POST',
-      })
-    },
-  },
-
-  // ============================================
-  // BANDWIDTH
-  // ============================================
-  bandwidth: {
-    getRealtime: async (): Promise<BandwidthRealtime> => {
-      return apiRequest<BandwidthRealtime>('/bandwidth/realtime')
-    },
-
-    getStats: async (): Promise<BandwidthStats> => {
-      return apiRequest<BandwidthStats>('/bandwidth/stats')
-    },
-
-    getUserBandwidth: async (username: string): Promise<UserBandwidth> => {
-      return apiRequest<UserBandwidth>(`/bandwidth/user/${username}`)
-    },
-
-    getHistory: async (days: number = 7): Promise<BandwidthHistory[]> => {
-      return apiRequest<BandwidthHistory[]>(`/bandwidth/history?days=${days}`)
-    },
-  },
-
-  // ============================================
-  // TICKETS (pré-générés depuis Mikhmon)
-  // ============================================
   tickets: {
     list: async (status?: TicketStatus): Promise<Ticket[]> => {
       const query = status ? `?status=${status}` : ''
@@ -437,6 +274,10 @@ export const apiClient = {
       })
     },
 
+    mine: async (): Promise<Ticket[]> => {
+      return apiRequest<Ticket[]>('/tickets/me')
+    },
+
     reserve: async (id: string): Promise<Ticket> => {
       return apiRequest<Ticket>(`/tickets/${id}/reserve`, {
         method: 'POST',
@@ -450,22 +291,35 @@ export const apiClient = {
     },
   },
 
-  // ============================================
-  // ADMIN - TICKETS
-  // ============================================
   admin: {
     tickets: {
-      import: async (
-        file: File,
-        defaultPrice?: number
-      ): Promise<{ imported: number; failed: number; errors: string[] }> => {
+      importRecommendations: async (file: File): Promise<TicketImportRecommendations> => {
         const token = getToken()
         const formData = new FormData()
         formData.append('file', file)
-        if (defaultPrice != null) {
-          formData.append('defaultPrice', String(defaultPrice))
+
+        const response = await fetch(`${API_URL}/tickets/admin/import/recommendations`, {
+          method: 'POST',
+          body: formData,
+          headers: {
+            ...(token && { Authorization: `Bearer ${token}` }),
+          },
+        })
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({
+            message: `Erreur ${response.status}`,
+          }))
+          throw new Error(error.message || `Erreur ${response.status}`)
         }
-        console.log(`${API_URL}/tickets/admin/import`)
+
+        return response.json()
+      },
+
+      import: async (file: File): Promise<{ imported: number; failed: number; errors: string[] }> => {
+        const token = getToken()
+        const formData = new FormData()
+        formData.append('file', file)
 
         const response = await fetch(`${API_URL}/tickets/admin/import`, {
           method: 'POST',
@@ -513,40 +367,6 @@ export const apiClient = {
       },
     },
   },
-
-  // ============================================
-  // USERS (système)
-  // ============================================
-  users: {
-    list: async (): Promise<User[]> => {
-      return apiRequest<User[]>('/users')
-    },
-
-    getById: async (id: string): Promise<User> => {
-      return apiRequest<User>(`/users/${id}`)
-    },
-
-    create: async (data: Partial<User>): Promise<User> => {
-      return apiRequest<User>('/users', {
-        method: 'POST',
-        body: JSON.stringify(data),
-      })
-    },
-
-    update: async (id: string, data: Partial<User>): Promise<User> => {
-      return apiRequest<User>(`/users/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      })
-    },
-
-    delete: async (id: string): Promise<{ message: string }> => {
-      return apiRequest<{ message: string }>(`/users/${id}`, {
-        method: 'DELETE',
-      })
-    },
-  },
 }
 
-// Export des utilitaires
 export { getToken, setToken, removeToken, apiRequest }

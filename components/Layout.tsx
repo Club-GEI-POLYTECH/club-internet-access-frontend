@@ -5,17 +5,15 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
 import { UserRole } from '@/types/api'
-import { 
-  LayoutDashboard, 
-  Wifi, 
-  CreditCard, 
-  Users, 
-  Activity,
-  TrendingUp,
+import {
+  LayoutDashboard,
+  CreditCard,
   LogOut,
   Menu,
   X,
-  Ticket
+  Ticket,
+  ShoppingCart,
+  Sparkles,
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -25,11 +23,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
 
-  // Navigation selon le rôle
   const getNavigation = () => {
-    const baseNav = [
-      { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    ]
+    const baseNav = [{ name: 'Tableau de bord', href: '/dashboard', icon: LayoutDashboard }]
 
     if (!user) return baseNav
 
@@ -37,28 +32,25 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       case UserRole.ADMIN:
         return [
           ...baseNav,
-          { name: 'Tickets', href: '/admin/tickets', icon: Ticket },
-          { name: 'Comptes Wi-Fi', href: '/wifi-accounts', icon: Wifi },
+          { name: 'Import CSV & tickets', href: '/admin/tickets', icon: Ticket },
           { name: 'Paiements', href: '/payments', icon: CreditCard },
-          { name: 'Sessions', href: '/sessions', icon: Activity },
-          { name: 'Bande Passante', href: '/bandwidth', icon: TrendingUp },
-          { name: 'Utilisateurs', href: '/users', icon: Users },
         ]
-      
+
       case UserRole.AGENT:
         return [
           ...baseNav,
-          { name: 'Comptes Wi-Fi', href: '/wifi-accounts', icon: Wifi },
+          { name: 'Vendre un ticket', href: '/buy-ticket', icon: ShoppingCart },
           { name: 'Paiements', href: '/payments', icon: CreditCard },
         ]
-      
+
       case UserRole.STUDENT:
         return [
           ...baseNav,
-          { name: 'Mes Connexions', href: '/wifi-accounts', icon: Wifi },
-          { name: 'Mes Paiements', href: '/payments', icon: CreditCard },
+          { name: 'Mes tickets', href: '/my-tickets', icon: Ticket },
+          { name: 'Acheter', href: '/buy-ticket', icon: ShoppingCart },
+          { name: 'Mes paiements', href: '/payments', icon: CreditCard },
         ]
-      
+
       default:
         return baseNav
     }
@@ -73,111 +65,147 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     router.push('/login')
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Sidebar Mobile */}
-      <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? '' : 'hidden'}`}>
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-75" onClick={() => setSidebarOpen(false)} />
-        <div className="fixed inset-y-0 left-0 flex w-64 flex-col bg-white">
-          <div className="flex h-16 items-center justify-between px-4 border-b">
-            <h1 className="text-xl font-bold text-primary-600">UNIKIN Wi-Fi</h1>
-            <button onClick={() => setSidebarOpen(false)} className="lg:hidden">
-              <X className="h-6 w-6" />
-            </button>
-          </div>
-          <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  onClick={() => setSidebarOpen(false)}
-                  className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-primary-50 text-primary-600'
-                      : 'text-gray-700 hover:bg-gray-100 hover:translate-x-0.5'
-                  }`}
-                >
-                  <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                  {item.name}
-                </Link>
-              )
-            })}
-          </nav>
-        </div>
-      </div>
+  const navLinkClass = (active: boolean) =>
+    `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
+      active
+        ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-200 shadow-glow-sm border border-primary-400/20'
+        : 'text-slate-300 hover:bg-white/5 hover:text-white border border-transparent'
+    }`
 
-      {/* Sidebar Desktop */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-64 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200">
-          <div className="flex h-16 items-center px-4 border-b">
-            <h1 className="text-xl font-bold text-primary-600">UNIKIN Wi-Fi</h1>
-          </div>
-          <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.map((item) => {
-              const isActive = pathname === item.href
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`flex items-center px-4 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-primary-50 text-primary-600'
-                      : 'text-gray-700 hover:bg-gray-100 hover:translate-x-0.5'
-                  }`}
-                >
-                  <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                  {item.name}
-                </Link>
-              )
-            })}
-          </nav>
-          <div className="p-4 border-t">
-            <div className="flex items-center justify-between mb-2">
-              <div>
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.firstName} {user?.lastName}
-                </p>
-                <p className="text-xs text-gray-500">{user?.email}</p>
+  const NavList = ({ onNavigate }: { onNavigate?: () => void }) => (
+    <nav className="flex-1 space-y-1 px-3 py-4">
+      {navigation.map((item) => {
+        const isActive = pathname === item.href
+        return (
+          <Link
+            key={item.name}
+            href={item.href}
+            onClick={onNavigate}
+            className={navLinkClass(isActive)}
+          >
+            <span
+              className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
+                isActive
+                  ? 'bg-primary-500/30 text-primary-100'
+                  : 'bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-slate-200'
+              }`}
+            >
+              <item.icon className="h-5 w-5" strokeWidth={isActive ? 2.25 : 2} />
+            </span>
+            <span>{item.name}</span>
+          </Link>
+        )
+      })}
+    </nav>
+  )
+
+  return (
+    <div className="min-h-screen page-mesh-light">
+      {/* Mobile overlay sidebar */}
+      <div className={`fixed inset-0 z-50 lg:hidden ${sidebarOpen ? '' : 'hidden'}`}>
+        <button
+          type="button"
+          className="fixed inset-0 bg-ink-950/60 backdrop-blur-sm"
+          aria-label="Fermer le menu"
+          onClick={() => setSidebarOpen(false)}
+        />
+        <div className="fixed inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-white/10 bg-ink-950/95 shadow-2xl shadow-ink-950/40 backdrop-blur-xl">
+          <div className="flex h-16 items-center justify-between gap-2 border-b border-white/10 px-4">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-brand text-white shadow-glow-sm">
+                <Sparkles className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="font-display text-sm font-bold text-white truncate tracking-tight">Club Internet</p>
+                <p className="text-[10px] font-medium uppercase tracking-widest text-primary-300/90">Access</p>
               </div>
             </div>
             <button
-              onClick={handleLogout}
-              className="flex items-center w-full px-4 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg transition-colors duration-200"
+              type="button"
+              onClick={() => setSidebarOpen(false)}
+              aria-label="Fermer la barre latérale"
+              title="Fermer la barre latérale"
+              className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"
             >
-              <LogOut className="mr-2 h-4 w-4" />
+              <X className="h-5 w-5" />
+            </button>
+          </div>
+          <NavList onNavigate={() => setSidebarOpen(false)} />
+          <div className="border-t border-white/10 p-4">
+            <div className="mb-3 rounded-xl bg-white/5 px-3 py-2">
+              <p className="truncate text-sm font-semibold text-white">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="truncate text-xs text-slate-400">{user?.email}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/20"
+            >
+              <LogOut className="h-4 w-4" />
               Déconnexion
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main Content */}
-      <div className="lg:pl-64">
-        {/* Top Bar */}
-        <div className="sticky top-0 z-10 flex h-16 bg-white border-b border-gray-200 lg:hidden">
+      {/* Desktop sidebar */}
+      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col">
+        <div className="flex grow flex-col border-r border-white/10 bg-ink-950 bg-mesh-auth">
+          <div className="flex h-[4.25rem] items-center gap-3 border-b border-white/10 px-5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow">
+              <Sparkles className="h-5 w-5" />
+            </span>
+            <div>
+              <h1 className="font-display text-lg font-bold tracking-tight text-white">Club Internet</h1>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-300/90">Access · UNIKIN</p>
+            </div>
+          </div>
+          <NavList />
+          <div className="mt-auto border-t border-white/10 p-4">
+            <div className="mb-3 rounded-xl bg-white/5 px-3 py-2.5 ring-1 ring-white/10">
+              <p className="truncate text-sm font-semibold text-white">
+                {user?.firstName} {user?.lastName}
+              </p>
+              <p className="truncate text-xs text-slate-400">{user?.email}</p>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition-all hover:bg-red-500/20"
+            >
+              <LogOut className="h-4 w-4" />
+              Déconnexion
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="lg:pl-72">
+        <header className="sticky top-0 z-10 flex h-14 items-center gap-3 border-b border-ink-200/60 bg-white/70 px-4 backdrop-blur-lg lg:hidden">
           <button
+            type="button"
             onClick={() => setSidebarOpen(true)}
-            className="px-4 text-gray-500"
+            className="rounded-xl p-2 text-ink-600 hover:bg-ink-100"
+            aria-label="Ouvrir le menu"
           >
             <Menu className="h-6 w-6" />
           </button>
-          <div className="flex flex-1 items-center justify-between px-4">
-            <h1 className="text-lg font-semibold">UNIKIN Wi-Fi</h1>
+          <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
+            <p className="truncate font-display text-sm font-bold text-ink-900">Club Internet Access</p>
             <button
+              type="button"
               onClick={handleLogout}
-              className="text-gray-500"
+              className="shrink-0 rounded-xl p-2 text-ink-500 hover:bg-ink-100 hover:text-ink-800"
+              aria-label="Déconnexion"
             >
               <LogOut className="h-5 w-5" />
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Page Content */}
-        <main className="p-4 lg:p-8">
-          {children}
-        </main>
+        <main className="relative p-4 sm:p-6 lg:p-10">{children}</main>
       </div>
     </div>
   )

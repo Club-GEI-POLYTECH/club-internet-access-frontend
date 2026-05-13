@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
 
 /**
- * Page d'accueil - Redirige vers /home (publique) ou /dashboard (si connecté)
+ * Point d'entrée : connectés → tableau de bord ; sinon → connexion (compte requis pour acheter).
  */
 export default function Home() {
   const router = useRouter()
@@ -18,14 +18,18 @@ export default function Home() {
       logger.info('Page /: utilisateur connecté → /dashboard')
       router.push('/dashboard')
     } else {
-      logger.info('Page /: non connecté → /home')
-      router.push('/home')
+      const redirectTo = encodeURIComponent('/buy-ticket')
+      logger.info('Page /: non connecté → /login (achat réservé aux comptes)')
+      router.push(`/login?redirectTo=${redirectTo}`)
     }
   }, [user, router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+    <div className="flex min-h-screen items-center justify-center bg-ink-950 bg-mesh-auth">
+      <div className="flex flex-col items-center gap-4">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-white/20 border-t-primary-300" />
+        <p className="text-sm font-medium text-primary-200/90">Redirection…</p>
+      </div>
     </div>
   )
 }

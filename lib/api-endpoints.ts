@@ -46,27 +46,11 @@ export const API_ENDPOINTS = {
     resetPassword: '/auth/reset-password',
   },
 
-  // --- Users ---
-  users: {
-    list: '/users',
-    get: (id: string) => `/users/${id}`,
-    create: '/users',
-    update: (id: string) => `/users/${id}`,
-    delete: (id: string) => `/users/${id}`,
-  },
-
-  // --- WiFi Accounts ---
-  wifiAccounts: {
-    list: '/wifi-accounts',
-    active: '/wifi-accounts/active',
-    get: (id: string) => `/wifi-accounts/${id}`,
-    create: '/wifi-accounts',
-    delete: (id: string) => `/wifi-accounts/${id}`,
-  },
-
   // --- Payments ---
   payments: {
     list: '/payments',
+    /** KELPAY Mobile Money — JWT requis */
+    initiateKelpay: '/payments/initiate',
     get: (id: string) => `/payments/${id}`,
     getByTransaction: (transactionId: string) => `/payments/transaction/${transactionId}`,
     create: '/payments',
@@ -74,40 +58,11 @@ export const API_ENDPOINTS = {
     updateStatus: (id: string) => `/payments/${id}/status`,
   },
 
-  // --- Sessions ---
-  sessions: {
-    list: '/sessions',
-    active: '/sessions/active',
-    statistics: '/sessions/statistics',
-    sync: '/sessions/sync',
-    byWifiAccount: (wifiAccountId: string) => `/sessions/wifi-account/${wifiAccountId}`,
-    get: (id: string) => `/sessions/${id}`,
-  },
-
-  // --- Dashboard ---
+  // --- Dashboard (statistiques vente / générales) ---
   dashboard: {
     myStats: '/dashboard/my-stats',
     stats: '/dashboard/stats',
     charts: (days: number) => `/dashboard/charts?days=${days}`,
-  },
-
-  // --- MikroTik ---
-  mikrotik: {
-    status: '/mikrotik/status',
-    users: '/mikrotik/users',
-    user: (name: string) => `/mikrotik/users/${encodeURIComponent(name)}`,
-    userDisable: (name: string) => `/mikrotik/users/${encodeURIComponent(name)}/disable`,
-    userEnable: (name: string) => `/mikrotik/users/${encodeURIComponent(name)}/enable`,
-    active: '/mikrotik/active',
-    activeDisconnect: (sessionId: string) => `/mikrotik/active/${sessionId}`,
-  },
-
-  // --- Bandwidth ---
-  bandwidth: {
-    realtime: '/bandwidth/realtime',
-    stats: '/bandwidth/stats',
-    user: (username: string) => `/bandwidth/user/${encodeURIComponent(username)}`,
-    history: (days: number) => `/bandwidth/history?days=${days}`,
   },
 
   // --- Tickets (public + achat) ---
@@ -120,6 +75,8 @@ export const API_ENDPOINTS = {
     byType: (typeId: string) => `/tickets/type/${typeId}`,
     get: (id: string) => `/tickets/${id}`,
     purchase: '/tickets/purchase',
+    /** Tickets de l’utilisateur connecté (JWT) */
+    mine: '/tickets/me',
     reserve: (id: string) => `/tickets/${id}/reserve`,
     release: (id: string) => `/tickets/${id}/release`,
     webhookPayment: '/tickets/webhook/payment',

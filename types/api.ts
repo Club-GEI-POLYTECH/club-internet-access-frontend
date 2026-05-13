@@ -107,8 +107,12 @@ export interface CreateWiFiAccountRequest {
 
 export enum PaymentStatus {
   PENDING = 'pending',
+  PROCESSING = 'processing',
+  /** Alias courant côté KELPAY / webhooks */
+  SUCCESS = 'success',
   COMPLETED = 'completed',
   FAILED = 'failed',
+  EXPIRED = 'expired',
   CANCELLED = 'cancelled',
 }
 
@@ -123,6 +127,9 @@ export interface Payment {
   amount: number
   method: PaymentMethod
   status: PaymentStatus
+  /** Référence marchand KELPAY (si exposée par le backend) */
+  merchantReference?: string
+  ticketId?: string
   transactionId?: string
   phoneNumber?: string
   wifiAccountId?: string
@@ -281,7 +288,7 @@ export enum TicketStatus {
 export interface TicketType {
   id: string
   name: string
-  profile: string // Profil MikroTik (ex: TEST, BASIC, PREMIUM)
+  profile: string // Profil / forfait côté routeur (ex. 24h, 7j, 30j)
   description: string
   timeLimit?: string // Format: "1d", "24h", null si illimité
   dataLimit?: string // Format: "1GB", "500MB", null si illimité
@@ -398,7 +405,13 @@ export interface PaginatedResponse<T> {
 
 export type DurationLabel = '24 heures' | '48 heures' | '7 jours' | '30 jours' | 'Illimité'
 export type BandwidthLabel = '1 Mbps' | '2 Mbps' | '5 Mbps'
-export type PaymentStatusLabel = 'En attente' | 'Complété' | 'Échoué' | 'Annulé'
+export type PaymentStatusLabel =
+  | 'En attente'
+  | 'En cours'
+  | 'Complété'
+  | 'Échoué'
+  | 'Expiré'
+  | 'Annulé'
 export type PaymentMethodLabel = 'Mobile Money' | 'Espèces' | 'Carte'
 
 export const durationLabels: Record<DurationType, DurationLabel> = {
@@ -417,8 +430,11 @@ export const bandwidthLabels: Record<BandwidthProfile, BandwidthLabel> = {
 
 export const paymentStatusLabels: Record<PaymentStatus, PaymentStatusLabel> = {
   [PaymentStatus.PENDING]: 'En attente',
+  [PaymentStatus.PROCESSING]: 'En cours',
+  [PaymentStatus.SUCCESS]: 'Complété',
   [PaymentStatus.COMPLETED]: 'Complété',
   [PaymentStatus.FAILED]: 'Échoué',
+  [PaymentStatus.EXPIRED]: 'Expiré',
   [PaymentStatus.CANCELLED]: 'Annulé',
 }
 

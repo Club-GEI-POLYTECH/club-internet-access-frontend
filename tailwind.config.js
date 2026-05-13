@@ -1,25 +1,57 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/**/*.{js,ts,jsx,tsx,mdx}",
+    './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ['var(--font-sans)', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        display: ['var(--font-display)', 'var(--font-sans)', 'system-ui', 'sans-serif'],
+      },
       colors: {
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: '#ecfeff',
+          100: '#cffafe',
+          200: '#a5f3fc',
+          300: '#67e8f9',
+          400: '#22d3ee',
+          500: '#06b6d4',
+          600: '#0891b2',
+          700: '#0e7490',
+          800: '#155e75',
+          900: '#164e63',
         },
+        ink: {
+          50: '#f8fafc',
+          100: '#f1f5f9',
+          200: '#e2e8f0',
+          300: '#cbd5e1',
+          400: '#94a3b8',
+          500: '#64748b',
+          600: '#475569',
+          700: '#334155',
+          800: '#1e293b',
+          900: '#0f172a',
+          950: '#020617',
+        },
+      },
+      boxShadow: {
+        glow: '0 0 40px -10px rgba(6, 182, 212, 0.45)',
+        'glow-sm': '0 0 24px -8px rgba(6, 182, 212, 0.35)',
+        card: '0 4px 6px -1px rgb(15 23 42 / 0.06), 0 12px 24px -4px rgb(15 23 42 / 0.08)',
+        'card-hover': '0 20px 40px -12px rgb(15 23 42 / 0.12), 0 0 0 1px rgb(6 182 212 / 0.08)',
+        glass: '0 8px 32px rgb(15 23 42 / 0.12), inset 0 1px 0 rgb(255 255 255 / 0.6)',
+      },
+      backgroundImage: {
+        'mesh-auth':
+          'radial-gradient(ellipse 100% 80% at 50% -30%, rgba(6,182,212,0.35), transparent 55%), radial-gradient(ellipse 60% 50% at 100% 20%, rgba(99,102,241,0.2), transparent), radial-gradient(ellipse 50% 60% at 0% 100%, rgba(14,165,233,0.15), transparent)',
+        'mesh-app':
+          'radial-gradient(ellipse 80% 50% at 50% -10%, rgba(6,182,212,0.12), transparent 50%), radial-gradient(ellipse 40% 40% at 100% 100%, rgba(99,102,241,0.06), transparent)',
+        'gradient-brand': 'linear-gradient(135deg, #0891b2 0%, #6366f1 50%, #0e7490 100%)',
+        'gradient-subtle': 'linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%)',
       },
       animation: {
         'fade-in': 'fadeIn 0.5s ease-out forwards',
@@ -29,6 +61,8 @@ module.exports = {
         'slide-in-right': 'slideInRight 0.4s ease-out forwards',
         'slide-in-left': 'slideInLeft 0.4s ease-out forwards',
         'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+        shimmer: 'shimmer 2.5s ease-in-out infinite',
+        float: 'float 6s ease-in-out infinite',
       },
       keyframes: {
         fadeIn: {
@@ -59,20 +93,28 @@ module.exports = {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.85' },
         },
+        shimmer: {
+          '0%, 100%': { backgroundPosition: '0% 50%' },
+          '50%': { backgroundPosition: '100% 50%' },
+        },
+        float: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-6px)' },
+        },
       },
       transitionDuration: {
-        '400': '400ms',
+        400: '400ms',
       },
       animationDelay: {
-        '100': '100ms',
-        '150': '150ms',
-        '200': '200ms',
-        '250': '250ms',
-        '300': '300ms',
-        '350': '350ms',
-        '400': '400ms',
-        '500': '500ms',
-        '600': '600ms',
+        100: '100ms',
+        150: '150ms',
+        200: '200ms',
+        250: '250ms',
+        300: '300ms',
+        350: '350ms',
+        400: '400ms',
+        500: '500ms',
+        600: '600ms',
       },
     },
   },

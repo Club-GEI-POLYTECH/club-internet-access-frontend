@@ -2,19 +2,24 @@
 
 import { useEffect, useState } from 'react'
 import { dashboardService } from '@/services/api'
-import { 
-  Wifi, 
-  Activity, 
-  DollarSign,
-  Users
-} from 'lucide-react'
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
+import { apiClient } from '@/lib/api-client'
+import { Ticket as TicketIcon, DollarSign, ShoppingCart, Package } from 'lucide-react'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import toast from 'react-hot-toast'
 import type { DashboardStats, ChartData } from '@/types/api'
+
+type TicketAdminStats = {
+  total: number
+  available: number
+  sold: number
+  reserved: number
+  revenue: number
+}
 
 export default function DashboardAdmin() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [charts, setCharts] = useState<ChartData | null>(null)
+  const [ticketStats, setTicketStats] = useState<TicketAdminStats | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -25,39 +30,33 @@ export default function DashboardAdmin() {
 
   const loadData = async () => {
     try {
-      const [statsData, chartsData] = await Promise.all([
+      const [statsData, chartsData, ticketsData] = await Promise.all([
         dashboardService.getStats(),
         dashboardService.getCharts(7),
+        apiClient.admin.tickets.getStats().catch(() => null),
       ])
       setStats(statsData)
       setCharts(chartsData)
-    } catch (error: any) {
+      setTicketStats(ticketsData)
+    } catch (error: unknown) {
       toast.error('Erreur lors du chargement des données')
     } finally {
       setLoading(false)
     }
   }
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B'
-    const k = 1024
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB']
-    const i = Math.floor(Math.log(bytes) / Math.log(k))
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i]
-  }
-
   const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('fr-CD', { 
-      style: 'currency', 
+    return new Intl.NumberFormat('fr-CD', {
+      style: 'currency',
       currency: 'CDF',
-      minimumFractionDigits: 0 
+      minimumFractionDigits: 0,
     }).format(amount)
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      <div className="flex h-64 items-center justify-center">
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
       </div>
     )
   }
@@ -65,33 +64,34 @@ export default function DashboardAdmin() {
   if (!stats) return null
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between animate-fade-in-down">
+    <div className="space-y-8">
+      <div className="flex flex-col gap-4 animate-fade-in-down sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Tableau de bord Admin</h1>
-          <p className="text-gray-600 mt-1">Vue d'ensemble complète du système</p>
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Vue d&apos;ensemble</p>
+          <h1 className="font-display mt-1 text-3xl font-bold tracking-tight text-ink-900 md:text-4xl">
+            Vente de tickets
+          </h1>
+          <p className="mt-2 max-w-xl text-ink-600">Stocks, ventes et paiements en un coup d&apos;œil.</p>
         </div>
-        <button
-          onClick={loadData}
-          className="btn btn-secondary transition-transform duration-200 hover:scale-105 active:scale-95"
-        >
+        <button type="button" onClick={loadData} className="btn btn-secondary shrink-0 self-start sm:self-auto">
           Actualiser
         </button>
       </div>
 
-      {/* Statistiques principales */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="card opacity-0 animate-fade-in-up" style={{ animationDelay: '0.1s', animationFillMode: 'forwards' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Comptes Wi-Fi</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.accounts.total}</p>
-              <p className="text-xs text-green-600 mt-1">
-                {stats.accounts.active} actifs
+              <p className="text-sm font-medium text-ink-500">Tickets en stock</p>
+              <p className="font-display text-2xl font-bold text-ink-900">
+                {ticketStats != null ? ticketStats.available : '—'}
+              </p>
+              <p className="mt-1 text-xs text-ink-500">
+                {ticketStats != null ? `${ticketStats.total} au total` : 'Stats tickets indisponibles'}
               </p>
             </div>
             <div className="p-3 bg-blue-100 rounded-full transition-transform duration-300 hover:scale-110">
-              <Wifi className="h-6 w-6 text-blue-600" />
+              <Package className="h-6 w-6 text-blue-600" />
             </div>
           </div>
         </div>
@@ -99,12 +99,31 @@ export default function DashboardAdmin() {
         <div className="card opacity-0 animate-fade-in-up" style={{ animationDelay: '0.15s', animationFillMode: 'forwards' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Revenus totaux</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-ink-500">Tickets vendus</p>
+              <p className="font-display text-2xl font-bold text-ink-900">
+                {ticketStats != null ? ticketStats.sold : '—'}
+              </p>
+              <p className="text-xs text-amber-600 mt-1">
+                {ticketStats != null && ticketStats.reserved > 0
+                  ? `${ticketStats.reserved} réservé(s)`
+                  : ' '}
+              </p>
+            </div>
+            <div className="p-3 bg-indigo-100 rounded-full transition-transform duration-300 hover:scale-110">
+              <TicketIcon className="h-6 w-6 text-indigo-600" />
+            </div>
+          </div>
+        </div>
+
+        <div className="card opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-ink-500">Revenus (paiements)</p>
+              <p className="font-display text-2xl font-bold text-ink-900">
                 {formatCurrency(stats.payments.revenue)}
               </p>
               <p className="text-xs text-green-600 mt-1">
-                {stats.payments.completed} paiements
+                {`${stats.payments.completed} paiement${stats.payments.completed !== 1 ? 's' : ''} complété${stats.payments.completed !== 1 ? 's' : ''}`}
               </p>
             </div>
             <div className="p-3 bg-green-100 rounded-full transition-transform duration-300 hover:scale-110">
@@ -113,61 +132,45 @@ export default function DashboardAdmin() {
           </div>
         </div>
 
-        <div className="card opacity-0 animate-fade-in-up" style={{ animationDelay: '0.2s', animationFillMode: 'forwards' }}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-600">Sessions actives</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.sessions.active}</p>
-              <p className="text-xs text-blue-600 mt-1">
-                {formatBytes(stats.sessions.totalBytesTransferred)}
-              </p>
-            </div>
-            <div className="p-3 bg-purple-100 rounded-full transition-transform duration-300 hover:scale-110">
-              <Activity className="h-6 w-6 text-purple-600" />
-            </div>
-          </div>
-        </div>
-
         <div className="card opacity-0 animate-fade-in-up" style={{ animationDelay: '0.25s', animationFillMode: 'forwards' }}>
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-gray-600">Utilisateurs</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.users.total}</p>
-              <p className="text-xs text-blue-600 mt-1">
-                {stats.users.active} actifs
+              <p className="text-sm font-medium text-ink-500">Revenus tickets (admin)</p>
+              <p className="font-display text-2xl font-bold text-ink-900">
+                {ticketStats != null ? formatCurrency(ticketStats.revenue) : '—'}
               </p>
+              <p className="mt-1 text-xs text-ink-500">Si exposé par le backend</p>
             </div>
-            <div className="p-3 bg-orange-100 rounded-full transition-transform duration-300 hover:scale-110">
-              <Users className="h-6 w-6 text-orange-600" />
+            <div className="p-3 bg-emerald-100 rounded-full transition-transform duration-300 hover:scale-110">
+              <ShoppingCart className="h-6 w-6 text-emerald-600" />
             </div>
           </div>
         </div>
       </div>
 
-      {/* Statistiques détaillées */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card opacity-0 animate-fade-in-up" style={{ animationDelay: '0.3s', animationFillMode: 'forwards' }}>
-          <h2 className="text-lg font-semibold mb-4">Paiements</h2>
+          <h2 className="font-display text-lg font-bold text-ink-900">Paiements</h2>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Total</span>
+              <span className="text-ink-500">Total</span>
               <span className="font-semibold">{stats.payments.total}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Complétés</span>
+              <span className="text-ink-500">Complétés</span>
               <span className="text-green-600 font-semibold">{stats.payments.completed}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">En attente</span>
+              <span className="text-ink-500">En attente</span>
               <span className="text-yellow-600 font-semibold">{stats.payments.pending}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600">Échoués</span>
+              <span className="text-ink-500">Échoués</span>
               <span className="text-red-600 font-semibold">{stats.payments.failed}</span>
             </div>
-            <div className="pt-3 border-t">
+            <div className="pt-3 border-t border-ink-100">
               <div className="flex justify-between items-center">
-                <span className="text-gray-900 font-semibold">Revenus</span>
+                <span className="text-ink-900 font-semibold">Revenus</span>
                 <span className="text-xl font-bold text-green-600">
                   {formatCurrency(stats.payments.revenue)}
                 </span>
@@ -175,78 +178,30 @@ export default function DashboardAdmin() {
             </div>
           </div>
         </div>
-
-        <div className="card">
-          <h2 className="text-lg font-semibold mb-4">Sessions</h2>
-          <div className="space-y-3">
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Total</span>
-              <span className="font-semibold">{stats.sessions.total}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">Actives</span>
-              <span className="text-green-600 font-semibold">{stats.sessions.active}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <span className="text-gray-600">MikroTik actives</span>
-              <span className="text-blue-600 font-semibold">{stats.sessions.mikrotikActive}</span>
-            </div>
-            <div className="pt-3 border-t">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-900 font-semibold">Trafic total</span>
-                <span className="text-lg font-bold text-blue-600">
-                  {formatBytes(stats.sessions.totalBytesTransferred)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
       </div>
 
-      {/* Graphiques */}
       {charts && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Graphique des paiements */}
-          <div className="card opacity-0 animate-fade-in-up" style={{ animationDelay: '0.35s', animationFillMode: 'forwards' }}>
-            <h2 className="text-lg font-semibold mb-4">Revenus (7 derniers jours)</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={charts.payments}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip 
-                  formatter={(value: number) => formatCurrency(value)}
-                  labelFormatter={(label) => new Date(label).toLocaleDateString('fr-FR')}
-                />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="revenue" 
-                  stroke="#10b981" 
-                  strokeWidth={2}
-                  name="Revenus (CDF)"
-                />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-
-          {/* Graphique des comptes */}
-          <div className="card opacity-0 animate-fade-in-up" style={{ animationDelay: '0.4s', animationFillMode: 'forwards' }}>
-            <h2 className="text-lg font-semibold mb-4">Comptes créés/expirés</h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={charts.accounts}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" />
-                <YAxis />
-                <Tooltip 
-                  labelFormatter={(label) => new Date(label).toLocaleDateString('fr-FR')}
-                />
-                <Legend />
-                <Bar dataKey="created" fill="#3b82f6" name="Créés" />
-                <Bar dataKey="expired" fill="#ef4444" name="Expirés" />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+        <div className="card opacity-0 animate-fade-in-up" style={{ animationDelay: '0.35s', animationFillMode: 'forwards' }}>
+          <h2 className="font-display text-lg font-bold text-ink-900">Revenus (7 derniers jours)</h2>
+          <ResponsiveContainer width="100%" height={300}>
+            <LineChart data={charts.payments}>
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="date" />
+              <YAxis />
+              <Tooltip
+                formatter={(value: number) => formatCurrency(value)}
+                labelFormatter={(label) => new Date(label).toLocaleDateString('fr-FR')}
+              />
+              <Legend />
+              <Line
+                type="monotone"
+                dataKey="revenue"
+                stroke="#10b981"
+                strokeWidth={2}
+                name="Revenus (CDF)"
+              />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
       )}
     </div>

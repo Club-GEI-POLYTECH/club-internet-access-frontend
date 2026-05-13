@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { paymentsService } from '@/services/api'
+import { apiClient } from '@/lib/api-client'
+import { ticketTypesPricePlaceholder } from '@/lib/ticket-type-price-placeholder'
 import { Plus, CheckCircle, XCircle, Clock, DollarSign } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
@@ -17,9 +19,14 @@ export default function Payments() {
     phoneNumber: '',
     wifiAccountId: '',
   })
+  const [amountPlaceholder, setAmountPlaceholder] = useState('')
 
   useEffect(() => {
     loadPayments()
+    apiClient.tickets
+      .getTypes()
+      .then((types) => setAmountPlaceholder(ticketTypesPricePlaceholder(types)))
+      .catch(() => setAmountPlaceholder(''))
   }, [])
 
   const loadPayments = async () => {
@@ -142,15 +149,18 @@ export default function Payments() {
                   value={formData.amount}
                   onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                   className="input"
-                  placeholder="1000"
+                  placeholder={
+                    amountPlaceholder || 'Montant selon le tarif du type de ticket (catalogue API)'
+                  }
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="payments-create-method" className="block text-sm font-medium text-gray-700 mb-2">
                   Méthode de paiement
                 </label>
                 <select
+                  id="payments-create-method"
                   value={formData.method}
                   onChange={(e) => setFormData({ ...formData, method: e.target.value as any })}
                   className="input"
