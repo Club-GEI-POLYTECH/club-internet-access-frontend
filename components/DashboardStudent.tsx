@@ -26,8 +26,7 @@ export default function DashboardStudent() {
       ])
       setMyTickets(Array.isArray(tickets) ? tickets.slice(0, 6) : [])
       setMyPayments(payments.slice(0, 6))
-    } catch (error) {
-      console.error('Erreur lors du chargement:', error)
+    } catch {
       notify.error('Données indisponibles', 'Impossible de charger votre espace. Actualisez la page.')
     }
   }

@@ -35,8 +35,8 @@ export default function DashboardAgent() {
     try {
       const payments = await apiClient.payments.list().catch(() => [])
       setRecentPayments(payments.slice(0, 8))
-    } catch (error) {
-      console.error('Erreur lors du chargement:', error)
+    } catch {
+      /* chargement best-effort, liste vide si échec */
     }
   }
 

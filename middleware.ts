@@ -1,34 +1,27 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
-const LOG_PREFIX = '[ClubIA] Middleware'
-
 /**
  * Middleware Next.js pour protéger les routes et gérer HTTP/HTTPS
  */
 export function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
   const url = request.nextUrl.clone()
-  const isHttps = request.headers.get('x-forwarded-proto') === 'https' || 
-                   url.protocol === 'https:'
-
-  console.log(`${LOG_PREFIX} requête`, { pathname, isHttps })
+  const isHttps =
+    request.headers.get('x-forwarded-proto') === 'https' || url.protocol === 'https:'
 
   const publicRoutes = ['/login', '/register', '/forgot-password', '/reset-password']
-  const isPublicRoute = publicRoutes.some(route => pathname.startsWith(route))
+  const isPublicRoute = publicRoutes.some((route) => pathname.startsWith(route))
 
   if (isPublicRoute) {
-    console.log(`${LOG_PREFIX} route publique, passage`, { pathname })
     return NextResponse.next()
   }
 
   if (!isHttps && process.env.NODE_ENV === 'production') {
-    console.log(`${LOG_PREFIX} production HTTP → redirection HTTPS`, { pathname })
     url.protocol = 'https:'
     return NextResponse.redirect(url)
   }
 
-  console.log(`${LOG_PREFIX} route protégée, passage`, { pathname })
   return NextResponse.next()
 }
 
