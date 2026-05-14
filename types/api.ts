@@ -334,8 +334,32 @@ export interface TicketType {
   price: number // Prix en CDF (l’API peut renvoyer une chaîne décimale ; normalisé dans apiClient)
   isActive: boolean
   availableCount: number // Nombre de tickets disponibles de ce type
+  /** Si l’API les expose : ventes / stock total par type (sinon déduction possible via totalCount − availableCount). */
+  soldCount?: number
+  totalCount?: number
+  reservedCount?: number
   createdAt: string
   updatedAt?: string
+}
+
+/** Ligne optionnelle renvoyée par `GET /admin/tickets/stats` (clé `byType` ou équivalent). */
+export interface AdminTicketTypeStatRow {
+  ticketTypeId: string
+  name?: string
+  available: number
+  sold: number
+  reserved?: number
+  total?: number
+}
+
+/** Réponse normalisée de `GET /admin/tickets/stats`. */
+export interface AdminTicketsStats {
+  total: number
+  available: number
+  sold: number
+  reserved: number
+  revenue: number
+  byType?: AdminTicketTypeStatRow[]
 }
 
 export interface Ticket {

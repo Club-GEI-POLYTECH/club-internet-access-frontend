@@ -2,14 +2,14 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { apiClient } from '@/lib/api-client'
 import { ticketTypesPricePlaceholder } from '@/lib/ticket-type-price-placeholder'
-import { DollarSign, ShoppingCart, CreditCard } from 'lucide-react'
+import { DollarSign, ShoppingCart, CreditCard, UserRound } from 'lucide-react'
 import { notify } from '@/lib/notify'
 import type { Payment, CreatePaymentRequest } from '@/types/api'
 import { PaymentMethod as PaymentMethodEnum } from '@/types/api'
 import { paymentMethodLabels } from '@/types/api'
-import UserProfilePanel from '@/components/UserProfilePanel'
 
 export default function DashboardAgent() {
   const router = useRouter()
@@ -65,8 +65,6 @@ export default function DashboardAgent() {
 
   return (
     <div className="space-y-8">
-      <UserProfilePanel />
-
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Espace vendeur</p>
@@ -76,6 +74,10 @@ export default function DashboardAgent() {
           </p>
         </div>
         <div className="flex flex-wrap gap-3 justify-end">
+          <Link href="/profile" className="btn btn-secondary inline-flex items-center gap-2">
+            <UserRound className="h-5 w-5" />
+            Mon profil
+          </Link>
           <button
             type="button"
             onClick={() => router.push('/buy-ticket')}

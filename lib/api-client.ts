@@ -21,6 +21,7 @@ import type {
   Ticket,
   TicketStatus,
   TicketType,
+  AdminTicketsStats,
   TicketPurchaseRequest,
   TicketPurchaseResponse,
   CreateUserRequest,
@@ -43,6 +44,7 @@ import {
   normalizeTicketType,
   normalizeTicketTypeList,
 } from './normalize-ticket-api'
+import { normalizeAdminTicketsStats } from './normalize-admin-ticket-stats'
 
 const API_URL = getApiUrl()
 
@@ -624,14 +626,9 @@ export const apiClient = {
         return normalizeTicketList(raw)
       },
 
-      getStats: async (): Promise<{
-        total: number
-        available: number
-        sold: number
-        reserved: number
-        revenue: number
-      }> => {
-        return apiRequest('/admin/tickets/stats')
+      getStats: async (): Promise<AdminTicketsStats> => {
+        const raw = await apiRequest<unknown>('/admin/tickets/stats')
+        return normalizeAdminTicketsStats(raw)
       },
 
       updatePrice: async (ticketId: string, price: number): Promise<Ticket> => {

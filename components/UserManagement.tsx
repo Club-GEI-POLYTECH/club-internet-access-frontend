@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Pencil, Plus, Trash2, Users, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api-client'
@@ -58,7 +58,7 @@ export default function UserManagement() {
     )
   }
 
-  const handleCreate = async (e: React.FormEvent) => {
+  const handleCreate = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     try {
       await apiClient.users.create({
@@ -196,32 +196,89 @@ export default function UserManagement() {
           className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/50 p-4 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
+          aria-labelledby="create-user-dialog-title"
           onClick={(e) => e.target === e.currentTarget && setCreateOpen(false)}
         >
           <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-ink-200 bg-white p-6 shadow-xl">
-            <h2 className="font-display text-lg font-bold text-ink-900">Nouvel utilisateur</h2>
+            <h2 id="create-user-dialog-title" className="font-display text-lg font-bold text-ink-900">
+              Nouvel utilisateur
+            </h2>
             <form className="mt-4 space-y-3" onSubmit={(e) => void handleCreate(e)}>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-500">E-mail *</label>
-                <input className="input" type="email" required value={createForm.email} onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })} />
+                <label htmlFor="create-user-email" className="mb-1 block text-xs font-semibold text-ink-500">
+                  E-mail *
+                </label>
+                <input
+                  id="create-user-email"
+                  className="input"
+                  type="email"
+                  required
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  autoComplete="email"
+                  title="Adresse e-mail du nouvel utilisateur"
+                  placeholder="vous@exemple.cd"
+                />
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-500">Mot de passe *</label>
-                <input className="input" type="password" required value={createForm.password} onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })} />
+                <label htmlFor="create-user-password" className="mb-1 block text-xs font-semibold text-ink-500">
+                  Mot de passe *
+                </label>
+                <input
+                  id="create-user-password"
+                  className="input"
+                  type="password"
+                  required
+                  value={createForm.password}
+                  onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                  autoComplete="new-password"
+                  title="Mot de passe du nouvel utilisateur"
+                  placeholder="••••••••"
+                />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-ink-500">Prénom *</label>
-                  <input className="input" required value={createForm.firstName} onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })} />
+                  <label htmlFor="create-user-firstname" className="mb-1 block text-xs font-semibold text-ink-500">
+                    Prénom *
+                  </label>
+                  <input
+                    id="create-user-firstname"
+                    className="input"
+                    required
+                    value={createForm.firstName}
+                    onChange={(e) => setCreateForm({ ...createForm, firstName: e.target.value })}
+                    autoComplete="given-name"
+                    title="Prénom"
+                    placeholder="Jean"
+                  />
                 </div>
                 <div>
-                  <label className="mb-1 block text-xs font-semibold text-ink-500">Nom *</label>
-                  <input className="input" required value={createForm.lastName} onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })} />
+                  <label htmlFor="create-user-lastname" className="mb-1 block text-xs font-semibold text-ink-500">
+                    Nom *
+                  </label>
+                  <input
+                    id="create-user-lastname"
+                    className="input"
+                    required
+                    value={createForm.lastName}
+                    onChange={(e) => setCreateForm({ ...createForm, lastName: e.target.value })}
+                    autoComplete="family-name"
+                    title="Nom"
+                    placeholder="Dupont"
+                  />
                 </div>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-500">Rôle *</label>
-                <select className="input" value={createForm.role} onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as UserRole })}>
+                <label htmlFor="create-user-role" className="mb-1 block text-xs font-semibold text-ink-500">
+                  Rôle *
+                </label>
+                <select
+                  id="create-user-role"
+                  className="input"
+                  value={createForm.role}
+                  onChange={(e) => setCreateForm({ ...createForm, role: e.target.value as UserRole })}
+                  title="Rôle du nouvel utilisateur"
+                >
                   {roleOptions.map((r) => (
                     <option key={r} value={r}>
                       {roleLabel[r]}
@@ -230,8 +287,19 @@ export default function UserManagement() {
                 </select>
               </div>
               <div>
-                <label className="mb-1 block text-xs font-semibold text-ink-500">Téléphone</label>
-                <input className="input" value={createForm.phone ?? ''} onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })} />
+                <label htmlFor="create-user-phone" className="mb-1 block text-xs font-semibold text-ink-500">
+                  Téléphone
+                </label>
+                <input
+                  id="create-user-phone"
+                  className="input"
+                  type="tel"
+                  value={createForm.phone ?? ''}
+                  onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                  autoComplete="tel"
+                  title="Numéro de téléphone (optionnel)"
+                  placeholder="+243…"
+                />
               </div>
               <div className="flex justify-end gap-2 pt-2">
                 <button type="button" className="btn btn-secondary" onClick={() => setCreateOpen(false)}>
@@ -247,7 +315,12 @@ export default function UserManagement() {
       ) : null}
 
       {editUser ? (
-        <EditUserModal user={editUser} onClose={() => setEditUser(null)} onSubmit={(payload) => void handleUpdate(editUser, payload)} />
+        <EditUserModal
+          key={editUser.id}
+          user={editUser}
+          onClose={() => setEditUser(null)}
+          onSubmit={(payload) => void handleUpdate(editUser, payload)}
+        />
       ) : null}
     </div>
   )
@@ -269,15 +342,21 @@ function EditUserModal({
   const [isActive, setIsActive] = useState(user.isActive)
   const [newPassword, setNewPassword] = useState('')
 
+  const fieldId = (suffix: string) => `edit-user-${user.id}-${suffix}`
+  const titleId = fieldId('dialog-title')
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-ink-950/50 p-4 backdrop-blur-sm"
       role="dialog"
       aria-modal="true"
+      aria-labelledby={titleId}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
       <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-ink-200 bg-white p-6 shadow-xl">
-        <h2 className="font-display text-lg font-bold text-ink-900">Modifier {user.email}</h2>
+        <h2 id={titleId} className="font-display text-lg font-bold text-ink-900">
+          Modifier {user.email}
+        </h2>
         <form
           className="mt-4 space-y-3"
           onSubmit={(e) => {
@@ -295,21 +374,60 @@ function EditUserModal({
         >
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink-500">Prénom</label>
-              <input className="input" value={firstName} onChange={(e) => setFirstName(e.target.value)} />
+              <label htmlFor={fieldId('firstname')} className="mb-1 block text-xs font-semibold text-ink-500">
+                Prénom
+              </label>
+              <input
+                id={fieldId('firstname')}
+                className="input"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                autoComplete="given-name"
+                title="Prénom"
+                placeholder="Prénom"
+              />
             </div>
             <div>
-              <label className="mb-1 block text-xs font-semibold text-ink-500">Nom</label>
-              <input className="input" value={lastName} onChange={(e) => setLastName(e.target.value)} />
+              <label htmlFor={fieldId('lastname')} className="mb-1 block text-xs font-semibold text-ink-500">
+                Nom
+              </label>
+              <input
+                id={fieldId('lastname')}
+                className="input"
+                value={lastName}
+                onChange={(e) => setLastName(e.target.value)}
+                autoComplete="family-name"
+                title="Nom"
+                placeholder="Nom"
+              />
             </div>
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-ink-500">Téléphone</label>
-            <input className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <label htmlFor={fieldId('phone')} className="mb-1 block text-xs font-semibold text-ink-500">
+              Téléphone
+            </label>
+            <input
+              id={fieldId('phone')}
+              className="input"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              autoComplete="tel"
+              title="Téléphone"
+              placeholder="+243…"
+            />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-ink-500">Rôle</label>
-            <select className="input" value={role} onChange={(e) => setRole(e.target.value as UserRole)}>
+            <label htmlFor={fieldId('role')} className="mb-1 block text-xs font-semibold text-ink-500">
+              Rôle
+            </label>
+            <select
+              id={fieldId('role')}
+              className="input"
+              value={role}
+              onChange={(e) => setRole(e.target.value as UserRole)}
+              title="Rôle de l’utilisateur"
+            >
               {roleOptions.map((r) => (
                 <option key={r} value={r}>
                   {roleLabel[r]}
@@ -317,13 +435,31 @@ function EditUserModal({
               ))}
             </select>
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-sm text-ink-700">
-            <input type="checkbox" checked={isActive} onChange={(e) => setIsActive(e.target.checked)} className="rounded border-ink-300" />
+          <label htmlFor={fieldId('active')} className="flex cursor-pointer items-center gap-2 text-sm text-ink-700">
+            <input
+              id={fieldId('active')}
+              type="checkbox"
+              checked={isActive}
+              onChange={(e) => setIsActive(e.target.checked)}
+              className="rounded border-ink-300"
+              title="Compte actif ou désactivé"
+            />
             Compte actif
           </label>
           <div>
-            <label className="mb-1 block text-xs font-semibold text-ink-500">Nouveau mot de passe (optionnel)</label>
-            <input className="input" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Laisser vide pour ne pas changer" autoComplete="new-password" />
+            <label htmlFor={fieldId('password')} className="mb-1 block text-xs font-semibold text-ink-500">
+              Nouveau mot de passe (optionnel)
+            </label>
+            <input
+              id={fieldId('password')}
+              className="input"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Laisser vide pour ne pas changer"
+              autoComplete="new-password"
+              title="Nouveau mot de passe (optionnel)"
+            />
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <button type="button" className="btn btn-secondary" onClick={onClose}>

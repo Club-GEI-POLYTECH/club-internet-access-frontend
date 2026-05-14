@@ -38,13 +38,29 @@ export function parseApiInt(value: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
+function parseOptionalApiInt(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.trunc(value)
+  const s = String(value).trim()
+  if (s === '') return undefined
+  const n = parseInt(s, 10)
+  return Number.isFinite(n) ? n : undefined
+}
+
 export function normalizeTicketType(raw: TicketType): TicketType {
-  const price = parseApiDecimal((raw as { price?: unknown }).price)
-  const availableCount = parseApiInt((raw as { availableCount?: unknown }).availableCount)
+  const r = raw as unknown as Record<string, unknown>
+  const price = parseApiDecimal(r.price)
+  const availableCount = parseApiInt(r.availableCount ?? r.available_count)
+  const soldCount = parseOptionalApiInt(r.soldCount ?? r.sold_count)
+  const totalCount = parseOptionalApiInt(r.totalCount ?? r.total_count ?? r.ticketsCount ?? r.tickets_count)
+  const reservedCount = parseOptionalApiInt(r.reservedCount ?? r.reserved_count)
   return {
     ...raw,
     price: Number.isFinite(price) ? price : NaN,
     availableCount,
+    ...(soldCount !== undefined ? { soldCount } : {}),
+    ...(totalCount !== undefined ? { totalCount } : {}),
+    ...(reservedCount !== undefined ? { reservedCount } : {}),
   }
 }
 

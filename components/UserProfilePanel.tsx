@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { User as UserIcon } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api-client'
@@ -29,7 +29,7 @@ export default function UserProfilePanel() {
 
   if (!user) return null
 
-  const handleSave = async (e: React.FormEvent) => {
+  const handleSave = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setSaving(true)
     try {
@@ -55,7 +55,7 @@ export default function UserProfilePanel() {
           <UserIcon className="h-6 w-6" />
         </div>
         <div>
-          <h2 className="font-display text-lg font-bold text-ink-900">Mon profil</h2>
+          <h2 className="font-display text-lg font-bold text-ink-900">Informations du compte</h2>
           <p className="text-sm text-ink-600">
             {user.email} · <span className="font-medium text-primary-700">{roleLabel[user.role]}</span>
           </p>
@@ -64,9 +64,23 @@ export default function UserProfilePanel() {
 
       <form onSubmit={(e) => void handleSave(e)} className="grid gap-4 sm:grid-cols-2">
         <div className="sm:col-span-2">
-          <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">E-mail</label>
-          <input type="email" value={user.email} disabled className="input cursor-not-allowed bg-ink-50 text-ink-600" />
-          <p className="mt-1 text-xs text-ink-500">L’e-mail n’est pas modifiable ici. Contactez un administrateur si besoin.</p>
+          <label htmlFor="profile-email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+            E-mail
+          </label>
+          <input
+            id="profile-email"
+            type="email"
+            value={user.email}
+            disabled
+            aria-label="Adresse e-mail (non modifiable)"
+            aria-describedby="profile-email-hint"
+            title="Adresse e-mail (non modifiable)"
+            placeholder="Non modifiable"
+            className="input cursor-not-allowed bg-ink-50 text-ink-600"
+          />
+          <p id="profile-email-hint" className="mt-1 text-xs text-ink-500">
+            L’e-mail n’est pas modifiable ici. Contactez un administrateur si besoin.
+          </p>
         </div>
         <div>
           <label htmlFor="profile-first" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
@@ -78,6 +92,9 @@ export default function UserProfilePanel() {
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
             autoComplete="given-name"
+            aria-label="Prénom"
+            title="Prénom"
+            placeholder="Jean"
           />
         </div>
         <div>
@@ -90,6 +107,9 @@ export default function UserProfilePanel() {
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
             autoComplete="family-name"
+            aria-label="Nom"
+            title="Nom"
+            placeholder="Dupont"
           />
         </div>
         <div className="sm:col-span-2">
@@ -104,6 +124,8 @@ export default function UserProfilePanel() {
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+243…"
             autoComplete="tel"
+            aria-label="Téléphone"
+            title="Numéro de téléphone"
           />
         </div>
         <div className="sm:col-span-2 flex justify-end">

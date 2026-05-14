@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Ticket, ShoppingCart, CreditCard } from 'lucide-react'
+import Link from 'next/link'
+import { Ticket, ShoppingCart, CreditCard, UserRound } from 'lucide-react'
 import { notify } from '@/lib/notify'
 import type { Payment, Ticket as TicketModel } from '@/types/api'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { apiClient } from '@/lib/api-client'
-import UserProfilePanel from '@/components/UserProfilePanel'
 
 export default function DashboardStudent() {
   const router = useRouter()
@@ -39,8 +39,6 @@ export default function DashboardStudent() {
 
   return (
     <div className="space-y-8">
-      <UserProfilePanel />
-
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Mon espace</p>
@@ -50,6 +48,10 @@ export default function DashboardStudent() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Link href="/profile" className="btn btn-secondary inline-flex items-center gap-2">
+            <UserRound className="h-5 w-5" />
+            Mon profil
+          </Link>
           <button type="button" onClick={() => router.push('/buy-ticket')} className="btn btn-primary flex items-center gap-2">
             <ShoppingCart className="h-5 w-5" />
             Acheter un ticket
