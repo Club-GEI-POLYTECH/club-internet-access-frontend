@@ -157,14 +157,14 @@ export enum PaymentStatus {
 
 export enum PaymentMethod {
   MOBILE_MONEY = 'mobile_money',
-  CASH = 'cash',
   CARD = 'card',
 }
 
 export interface Payment {
   id: string
   amount: number
-  method: PaymentMethod
+  /** Valeurs courantes : `mobile_money`, `card`. D’autres chaînes peuvent venir d’anciennes données API. */
+  method: PaymentMethod | string
   status: PaymentStatus
   /** Référence marchand KELPAY (si exposée par le backend) */
   merchantReference?: string
@@ -475,7 +475,7 @@ export type PaymentStatusLabel =
   | 'Échoué'
   | 'Expiré'
   | 'Annulé'
-export type PaymentMethodLabel = 'Mobile Money' | 'Espèces' | 'Carte'
+export type PaymentMethodLabel = 'Mobile Money' | 'Carte'
 
 export const durationLabels: Record<DurationType, DurationLabel> = {
   [DurationType.HOURS_24]: '24 heures',
@@ -503,8 +503,15 @@ export const paymentStatusLabels: Record<PaymentStatus, PaymentStatusLabel> = {
 
 export const paymentMethodLabels: Record<PaymentMethod, PaymentMethodLabel> = {
   [PaymentMethod.MOBILE_MONEY]: 'Mobile Money',
-  [PaymentMethod.CASH]: 'Espèces',
   [PaymentMethod.CARD]: 'Carte',
+}
+
+/** Libellé français pour une méthode renvoyée par l’API (y compris valeurs historiques non gérées par le front). */
+export function formatPaymentMethodLabel(method: string): string {
+  if (method === PaymentMethod.MOBILE_MONEY) return paymentMethodLabels[PaymentMethod.MOBILE_MONEY]
+  if (method === PaymentMethod.CARD) return paymentMethodLabels[PaymentMethod.CARD]
+  if (method === 'cash') return 'Autre'
+  return method
 }
 
 // ============================================

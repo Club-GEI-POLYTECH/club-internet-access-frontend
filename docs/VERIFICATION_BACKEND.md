@@ -136,7 +136,7 @@ Ce document liste toutes les vérifications nécessaires au niveau du backend ap
   ```json
   {
     "amount": 1000,
-    "method": "mobile_money" | "cash" | "card",
+    "method": "mobile_money" | "card",
     "phoneNumber": "+243900000000",
     "wifiAccountId": "string (optionnel)",
     "notes": "string (optionnel)"

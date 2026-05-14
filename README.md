@@ -1,6 +1,6 @@
 # Club Internet Access — Frontend
 
-Interface web Next.js pour la **vente de tickets Wi‑Fi** (catalogue, achat KELPAY ou espèces, mes tickets, administration des imports CSV).
+Interface web Next.js pour la **vente de tickets Wi‑Fi** (catalogue, achat KELPAY / Mobile Money, mes tickets, administration des imports CSV).
 
 ## 🚀 Déploiement sur Vercel
 
@@ -101,7 +101,7 @@ app/
 ├── page.tsx                 # Redirection / accueil
 ├── login/                   # Connexion
 ├── register/
-├── buy-ticket/              # Catalogue + achat (KELPAY / espèces)
+├── buy-ticket/              # Catalogue + achat (KELPAY)
 ├── my-tickets/              # Tickets de l’utilisateur connecté
 ├── dashboard/               # Tableaux de bord par rôle
 ├── admin/tickets/           # Admin / agent — import & gestion
@@ -162,10 +162,10 @@ Référence rapide alignée sur la collection Postman (`/api/...`) :
 |--------|------------------|
 | Initier un paiement Mobile Money (KELPAY) | `POST /payments/initiate` (Bearer JWT) |
 | Suivre un paiement | `GET /payments/{paymentId}` (polling ~3–5 s) |
-| Achat direct (ex. espèces) | `POST /tickets/purchase` |
+| Achat ticket (autre flux API, si exposé) | `POST /tickets/purchase` |
 | Mes tickets (après paiement) | `GET /tickets/me` (Bearer JWT) |
 
-**Guide détaillé** : [docs/FRONTEND_PAIEMENTS_KELPAY.md](./docs/FRONTEND_PAIEMENTS_KELPAY.md) (flux KELPAY vs cash, corps JSON, statuts, sécurité).
+**Guide détaillé** : [docs/FRONTEND_PAIEMENTS_KELPAY.md](./docs/FRONTEND_PAIEMENTS_KELPAY.md) (flux KELPAY, corps JSON, statuts, sécurité).
 
 ## 📚 Documentation
 

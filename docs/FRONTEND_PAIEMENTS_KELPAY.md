@@ -4,13 +4,15 @@ Ce document est aligné sur le contrat backend : **pas d’appel direct à Kelpa
 
 Les chemins sont relatifs à `NEXT_PUBLIC_API_URL` (souvent suffixe `/api`).
 
-## KELPAY (3 actions) vs espèces
+## Flux KELPAY (3 actions)
 
-| | **KELPAY** | **Espèces** |
-|---|------------|-------------|
-| Flux | `POST /payments/initiate` → `POST /payments/:id/kelpay/verify` → `POST /payments/:id/kelpay/confirm` ; annulation possible → **`POST /payments/:id/kelpay/cancel`** (ou secours `POST /tickets/:id/release`) | `POST /tickets/purchase` avec `method: "cash"` |
-| Rôle | `initiate` réserve le ticket et crée le paiement ; **ne pas** appeler `purchase` avec `mobile_money` en parallèle si vous utilisez `initiate`. | Paiement `pending`, complétion admin possible. |
-| UI | Trois moments distincts (boutons / écrans) ; l’utilisateur peut **prendre son temps** entre chaque étape tant que le paiement reste ouvert. | Confirmation unique. |
+| Élément | Détail |
+|---------|--------|
+| **Flux** | `POST /payments/initiate` → `POST /payments/:id/kelpay/verify` → `POST /payments/:id/kelpay/confirm` ; annulation possible → **`POST /payments/:id/kelpay/cancel`** (ou secours `POST /tickets/:id/release`). |
+| **Rôle** | `initiate` réserve le ticket et crée le paiement ; **ne pas** appeler `purchase` avec `mobile_money` en parallèle si vous utilisez `initiate`. |
+| **UI** | Trois moments distincts (boutons / écrans) ; l’utilisateur peut **prendre son temps** entre chaque étape tant que le paiement reste ouvert. |
+
+L’achat public dans ce frontend passe **uniquement** par ce parcours Mobile Money (KELPAY) décrit ci-dessous.
 
 ## Corps `POST /payments/initiate`
 

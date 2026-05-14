@@ -143,12 +143,12 @@ export default function Payments() {
   }
 
   const getMethodLabel = (method: string) => {
-    const methods = {
+    const methods: Record<string, string> = {
       mobile_money: 'Mobile Money',
-      cash: 'Espèces',
       card: 'Carte',
     }
-    return methods[method as keyof typeof methods] || method
+    if (method === 'cash') return 'Autre'
+    return methods[method] ?? method
   }
 
   const totalRevenue = payments

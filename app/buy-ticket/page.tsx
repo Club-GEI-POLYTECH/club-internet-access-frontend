@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useState, useEffect, useCallback } from 'react'
+import { Suspense, useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -14,14 +14,13 @@ import {
   ArrowRight,
   LayoutDashboard,
   Ticket as TicketIcon,
-  Banknote,
   Ban,
 } from 'lucide-react'
 import { apiClient } from '@/lib/api-client'
 import { parseApiDecimal } from '@/lib/normalize-ticket-api'
 import { logger } from '@/lib/logger'
-import type { Ticket, TicketType, TicketPurchaseRequest, TicketPurchaseResponse, Payment } from '@/types/api'
-import { PaymentMethod, TicketStatus } from '@/types/api'
+import type { Ticket, TicketType, TicketPurchaseResponse, Payment } from '@/types/api'
+import { TicketStatus } from '@/types/api'
 import {
   classifyKelpayVerifyDecision,
   isKelpayPaymentFailureStatus,
@@ -59,6 +58,13 @@ function effectiveUnitPrice(ticket: Ticket, typeFallback?: number | null): numbe
   const fromType = parseApiDecimal(typeFallback)
   if (Number.isFinite(fromType)) return fromType
   return undefined
+}
+
+/** Regroupe les tickets au même profil / prix / limites (affichage identique pour l’utilisateur). */
+function ticketOfferKey(ticket: Ticket, typeFallback?: number | null): string {
+  const p = effectiveUnitPrice(ticket, typeFallback)
+  const pStr = p !== undefined && Number.isFinite(p) ? String(p) : ''
+  return [ticket.profile, pStr, ticket.timeLimit ?? '', ticket.dataLimit ?? ''].join('\u0001')
 }
 
 /** Montant `POST /payments/initiate` : doit correspondre au prix du type (`ticketType.price`) côté backend. */
@@ -121,9 +127,7 @@ function BuyTicketContent() {
   const [loading, setLoading] = useState(true)
   const [selectedTicket, setSelectedTicket] = useState<Ticket | null>(null)
   const [phoneNumber, setPhoneNumber] = useState('')
-  const [purchasing, setPurchasing] = useState(false)
   const [purchaseResult, setPurchaseResult] = useState<TicketPurchaseResponse | null>(null)
-  const [checkoutMethod, setCheckoutMethod] = useState<'kelpay' | 'cash'>('kelpay')
   const [paymentHint, setPaymentHint] = useState<string | null>(null)
   const [kelpaySession, setKelpaySession] = useState<{ paymentId: string; ticketId: string } | null>(null)
   const [kelpayReadyToConfirm, setKelpayReadyToConfirm] = useState(false)
@@ -134,6 +138,31 @@ function BuyTicketContent() {
   const searchParams = useSearchParams()
   const typeId = searchParams.get('type')
   const { user, loading: authLoading } = useAuth()
+  const checkoutPanelRef = useRef<HTMLDivElement>(null)
+
+  const homogeneousOfferKey = useMemo(() => {
+    if (tickets.length === 0) return null
+    const k0 = ticketOfferKey(tickets[0], ticketType?.price)
+    if (!tickets.every((t) => ticketOfferKey(t, ticketType?.price) === k0)) return null
+    return k0
+  }, [tickets, ticketType])
+
+  /** Plusieurs entrées identiques côté affichage → une seule carte + premier ticket réservé pour l’API. */
+  const showCompactStock = homogeneousOfferKey != null && tickets.length > 1
+
+  const scrollToCheckout = useCallback(() => {
+    checkoutPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }, [])
+
+  const selectTicketAndScroll = useCallback(
+    (ticket: Ticket) => {
+      setSelectedTicket(ticket)
+      requestAnimationFrame(() => {
+        scrollToCheckout()
+      })
+    },
+    [scrollToCheckout],
+  )
 
   const clearKelpaySessionAfterFailure = useCallback(async () => {
     clearKelpayPendingStorage()
@@ -185,7 +214,6 @@ function BuyTicketContent() {
                     clearKelpayPendingStorage()
                   } else {
                     setKelpaySession({ paymentId: pending.paymentId, ticketId: pending.ticketId })
-                    setCheckoutMethod('kelpay')
                     const t = available.find((x) => x.id === pending.ticketId)
                     if (t) setSelectedTicket(t)
                     notify.info(
@@ -273,19 +301,20 @@ function BuyTicketContent() {
   }, [user, authLoading, typeId, router])
 
   useEffect(() => {
-    if (checkoutMethod === 'cash') {
-      setKelpaySession(null)
-      setKelpayReadyToConfirm(false)
-      clearKelpayPendingStorage()
-    }
-  }, [checkoutMethod])
-
-  useEffect(() => {
     if (!kelpaySession || !selectedTicket) return
     if (selectedTicket.id !== kelpaySession.ticketId) {
       void clearKelpaySessionAfterFailure()
     }
   }, [selectedTicket?.id, kelpaySession, clearKelpaySessionAfterFailure])
+
+  /** Plusieurs tickets identiques à l’écran : un seul bloc + premier ID pour l’achat. */
+  useEffect(() => {
+    if (!homogeneousOfferKey || tickets.length <= 1) return
+    setSelectedTicket((prev) => {
+      if (prev && tickets.some((t) => t.id === prev.id)) return prev
+      return tickets[0]
+    })
+  }, [tickets, homogeneousOfferKey])
 
   const finalizeKelpaySuccess = async (paymentId: string, ticketId: string, finalPayment: Payment) => {
     setPaymentHint('Récupération de votre ticket…')
@@ -319,49 +348,6 @@ function BuyTicketContent() {
     }
     setSelectedTicket(null)
     setPhoneNumber('')
-  }
-
-  const handleCashPurchase = async () => {
-    if (!selectedTicket || !phoneNumber.trim() || !user) {
-      logger.warn('BuyTicket: achat refusé, ticket, téléphone ou utilisateur manquant')
-      notify.error('Veuillez sélectionner un ticket et entrer votre numéro de téléphone')
-      return
-    }
-    const phoneRegex = /^(\+243|0)[0-9]{9}$/
-    if (!phoneRegex.test(phoneNumber.replace(/\s/g, ''))) {
-      logger.warn('BuyTicket: numéro de téléphone invalide')
-      notify.error('Veuillez entrer un numéro de téléphone valide (ex: +243900000000 ou 0900000000)')
-      return
-    }
-    const normalizedPhone = phoneNumber.replace(/\s/g, '')
-
-    logger.log('BuyTicket: achat cash', { ticketId: selectedTicket.id, phone: normalizedPhone })
-    setPurchasing(true)
-    setPaymentHint(null)
-    try {
-      const purchaseData: TicketPurchaseRequest = {
-        ticketId: selectedTicket.id,
-        phoneNumber: normalizedPhone,
-        method: PaymentMethod.CASH,
-      }
-      const result = await apiClient.tickets.purchase(purchaseData)
-      setPurchaseResult(result)
-      notify.success('Ticket acheté avec succès!')
-      logger.info('BuyTicket: achat cash réussi', { ticketId: selectedTicket.id })
-      if (typeId) {
-        const ticketsData = await apiClient.tickets.getByType(typeId)
-        setTickets(ticketsData.filter((t) => t.status === 'available'))
-      }
-      setSelectedTicket(null)
-      setPhoneNumber('')
-    } catch (error: unknown) {
-      logger.error('BuyTicket: achat cash échoué', error)
-      const message = error instanceof Error ? error.message : "Erreur lors de l'achat du ticket"
-      notify.error(message)
-    } finally {
-      setPurchasing(false)
-      setPaymentHint(null)
-    }
   }
 
   const handleKelpayInitiate = async () => {
@@ -926,51 +912,101 @@ function BuyTicketContent() {
         ) : (
           <div className="grid gap-6 md:grid-cols-2">
             <div
-              className="rounded-3xl border border-white/20 bg-white/95 p-6 shadow-2xl shadow-ink-950/15 backdrop-blur-xl animate-fade-in-up opacity-0 [animation-fill-mode:forwards]"
+              className="order-2 rounded-3xl border border-white/20 bg-white/95 p-6 shadow-2xl shadow-ink-950/15 backdrop-blur-xl animate-fade-in-up opacity-0 [animation-fill-mode:forwards] md:order-1"
               style={{ animationDelay: '0.1s' }}
             >
               <h2 className="font-display text-lg font-bold text-ink-900">
-                Tickets disponibles <span className="text-primary-600">({tickets.length})</span>
+                {showCompactStock ? (
+                  <>
+                    Stock · <span className="text-primary-600">{tickets.length} ticket(s)</span> identique(s)
+                  </>
+                ) : (
+                  <>
+                    Tickets disponibles <span className="text-primary-600">({tickets.length})</span>
+                  </>
+                )}
               </h2>
-              <div className="mt-4 max-h-[600px] space-y-3 overflow-y-auto pr-1">
-                {tickets.map((ticket) => (
-                  <button
-                    key={ticket.id}
-                    type="button"
-                    onClick={() => setSelectedTicket(ticket)}
-                    className={`w-full rounded-2xl border-2 p-4 text-left transition-all duration-200 ${
-                      selectedTicket?.id === ticket.id
-                        ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-cyan-50/80 shadow-md ring-2 ring-primary-500/20'
-                        : 'border-ink-100 bg-white hover:border-primary-300 hover:shadow-md'
-                    }`}
-                  >
+
+              {showCompactStock ? (
+                <div className="mt-4 space-y-4">
+                  <div className="rounded-2xl border-2 border-primary-500 bg-gradient-to-br from-primary-50 to-cyan-50/80 p-4 shadow-md ring-2 ring-primary-500/20">
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <span className="font-semibold text-ink-900">{ticket.profile}</span>
+                      <span className="font-semibold text-ink-900">{tickets[0].profile}</span>
                       <span className="font-display text-xl font-bold text-primary-600">
-                        {formatPrice(effectiveUnitPrice(ticket, ticketType?.price))}
+                        {formatPrice(effectiveUnitPrice(tickets[0], ticketType?.price))}
                       </span>
                     </div>
                     <div className="mt-2 flex flex-wrap gap-3 text-xs text-ink-500">
-                      {ticket.timeLimit && (
+                      {tickets[0].timeLimit && (
                         <span className="inline-flex items-center gap-1">
                           <Clock className="h-3.5 w-3.5 text-primary-500" />
-                          {formatLimit(ticket.timeLimit)}
+                          {formatLimit(tickets[0].timeLimit)}
                         </span>
                       )}
-                      {ticket.dataLimit && (
+                      {tickets[0].dataLimit && (
                         <span className="inline-flex items-center gap-1">
                           <HardDrive className="h-3.5 w-3.5 text-primary-500" />
-                          {formatLimit(ticket.dataLimit)}
+                          {formatLimit(tickets[0].dataLimit)}
                         </span>
                       )}
                     </div>
+                    <p className="mt-3 text-sm leading-relaxed text-ink-600">
+                      Inutile de répéter la même ligne des centaines de fois : au paiement,{' '}
+                      <strong className="text-ink-800">un ticket libre</strong> parmi ce stock vous est attribué
+                      automatiquement (en pratique le premier de la file côté serveur).
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={scrollToCheckout}
+                    className="btn btn-secondary w-full py-3 text-sm md:hidden"
+                  >
+                    Aller au paiement
                   </button>
-                ))}
-              </div>
+                </div>
+              ) : (
+                <div className="mt-4 max-h-[min(70vh,560px)] space-y-3 overflow-y-auto pr-1">
+                  {tickets.map((ticket) => (
+                    <button
+                      key={ticket.id}
+                      type="button"
+                      onClick={() => selectTicketAndScroll(ticket)}
+                      className={`w-full rounded-2xl border-2 p-4 text-left transition-all duration-200 ${
+                        selectedTicket?.id === ticket.id
+                          ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-cyan-50/80 shadow-md ring-2 ring-primary-500/20'
+                          : 'border-ink-100 bg-white hover:border-primary-300 hover:shadow-md'
+                      }`}
+                    >
+                      <div className="flex flex-wrap items-baseline justify-between gap-2">
+                        <span className="font-semibold text-ink-900">{ticket.profile}</span>
+                        <span className="font-display text-xl font-bold text-primary-600">
+                          {formatPrice(effectiveUnitPrice(ticket, ticketType?.price))}
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-3 text-xs text-ink-500">
+                        {ticket.timeLimit && (
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3.5 w-3.5 text-primary-500" />
+                            {formatLimit(ticket.timeLimit)}
+                          </span>
+                        )}
+                        {ticket.dataLimit && (
+                          <span className="inline-flex items-center gap-1">
+                            <HardDrive className="h-3.5 w-3.5 text-primary-500" />
+                            {formatLimit(ticket.dataLimit)}
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div
-              className="rounded-3xl border border-white/20 bg-white/95 p-6 shadow-2xl shadow-ink-950/15 backdrop-blur-xl animate-fade-in-up opacity-0 [animation-fill-mode:forwards]"
+              ref={checkoutPanelRef}
+              id="buy-ticket-checkout"
+              className="order-1 rounded-3xl border border-white/20 bg-white/95 p-6 shadow-2xl shadow-ink-950/15 backdrop-blur-xl animate-fade-in-up opacity-0 [animation-fill-mode:forwards] md:order-2"
               style={{ animationDelay: '0.2s' }}
             >
               <h2 className="font-display text-lg font-bold text-ink-900">Paiement</h2>
@@ -1006,36 +1042,13 @@ function BuyTicketContent() {
                   </div>
 
                   <div className="space-y-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Mode de paiement</p>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setCheckoutMethod('kelpay')}
-                        className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all ${
-                          checkoutMethod === 'kelpay'
-                            ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-cyan-50/80 shadow-md ring-2 ring-primary-500/20'
-                            : 'border-ink-100 bg-white hover:border-primary-200'
-                        }`}
-                      >
-                        <CreditCard className="h-6 w-6 text-primary-600" />
-                        <span className="text-sm font-bold text-ink-900">Mobile Money</span>
-                        <span className="text-[10px] font-medium leading-tight text-ink-500">
-                          KELPAY · 3 étapes : demande → vérifier → confirmer (backend uniquement)
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setCheckoutMethod('cash')}
-                        className={`flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-center transition-all ${
-                          checkoutMethod === 'cash'
-                            ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-cyan-50/80 shadow-md ring-2 ring-primary-500/20'
-                            : 'border-ink-100 bg-white hover:border-primary-200'
-                        }`}
-                      >
-                        <Banknote className="h-6 w-6 text-primary-600" />
-                        <span className="text-sm font-bold text-ink-900">Espèces</span>
-                        <span className="text-[10px] font-medium leading-tight text-ink-500">Achat direct (caisse / point de vente)</span>
-                      </button>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Paiement</p>
+                    <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-primary-500 bg-gradient-to-br from-primary-50 to-cyan-50/80 p-4 text-center shadow-md ring-2 ring-primary-500/20">
+                      <CreditCard className="h-6 w-6 text-primary-600" />
+                      <span className="text-sm font-bold text-ink-900">Mobile Money (KELPAY)</span>
+                      <span className="text-[10px] font-medium leading-tight text-ink-500">
+                        3 étapes : demande → vérifier → confirmer (API avec votre session)
+                      </span>
                     </div>
                   </div>
 
@@ -1053,28 +1066,21 @@ function BuyTicketContent() {
                       required
                     />
                     <p className="mt-1.5 text-xs text-ink-500">
-                      {checkoutMethod === 'kelpay'
-                        ? 'Numéro Mobile Money pour le débit KELPAY (+243… ou 09…).'
-                        : 'Numéro de contact pour le reçu / la traçabilité.'}
+                      Numéro Mobile Money pour le débit KELPAY (+243… ou 09…).
                     </p>
                   </div>
 
                   <div className="rounded-xl border border-ink-100 bg-ink-50/80 p-3">
                     <div className="flex items-start gap-2">
-                      {checkoutMethod === 'kelpay' ? (
-                        <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
-                      ) : (
-                        <Banknote className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
-                      )}
+                      <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
                       <span className="text-sm font-semibold leading-snug text-ink-800">
-                        {checkoutMethod === 'kelpay'
-                          ? 'Le navigateur n’appelle jamais Kelpay directement : initiate → verify → confirm sur l’API, avec votre JWT. Pas de polling automatique côté serveur après initiate.'
-                          : 'Achat enregistré comme espèces'}
+                        Le navigateur n’appelle jamais Kelpay directement : initiate → verify → confirm sur l’API, avec votre
+                        JWT. Pas de polling automatique côté serveur après initiate.
                       </span>
                     </div>
                   </div>
 
-                  {checkoutMethod === 'kelpay' && kelpaySession && (
+                  {kelpaySession && (
                     <div className="space-y-3 rounded-2xl border border-primary-200 bg-primary-50/70 p-4 text-sm text-ink-800">
                       <p className="font-semibold text-ink-900">Demande Mobile Money envoyée</p>
                       <p>
@@ -1165,25 +1171,14 @@ function BuyTicketContent() {
                     </div>
                   )}
 
-                  {!(checkoutMethod === 'kelpay' && kelpaySession) && (
+                  {!kelpaySession && (
                     <button
                       type="button"
-                      onClick={() => {
-                        if (checkoutMethod === 'cash') void handleCashPurchase()
-                        else void handleKelpayInitiate()
-                      }}
-                      disabled={
-                        (checkoutMethod === 'cash' ? purchasing : kelpaySubmitting !== null) ||
-                        !phoneNumber.trim()
-                      }
+                      onClick={() => void handleKelpayInitiate()}
+                      disabled={kelpaySubmitting !== null || !phoneNumber.trim()}
                       className="btn btn-primary w-full py-3.5 text-base disabled:opacity-50"
                     >
-                      {checkoutMethod === 'cash' && purchasing ? (
-                        <span className="inline-flex items-center gap-2">
-                          <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                          Traitement…
-                        </span>
-                      ) : checkoutMethod === 'kelpay' && kelpaySubmitting === 'init' ? (
+                      {kelpaySubmitting === 'init' ? (
                         <span className="inline-flex items-center gap-2">
                           <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                           Envoi de la demande…
@@ -1191,9 +1186,7 @@ function BuyTicketContent() {
                       ) : (
                         <span className="inline-flex items-center gap-2">
                           <ShoppingCart className="h-5 w-5" />
-                          {checkoutMethod === 'kelpay'
-                            ? 'Envoyer la demande sur mon téléphone'
-                            : 'Confirmer l’achat (espèces)'}
+                          Envoyer la demande sur mon téléphone
                         </span>
                       )}
                     </button>
@@ -1210,7 +1203,7 @@ function BuyTicketContent() {
               ) : (
                 <div className="mt-10 py-8 text-center text-ink-500">
                   <ShoppingCart className="mx-auto mb-3 h-12 w-12 opacity-40" />
-                  <p className="text-sm font-medium">Sélectionnez un ticket à gauche pour continuer</p>
+                  <p className="text-sm font-medium">Sélectionnez un ticket dans la liste pour continuer.</p>
                 </div>
               )}
             </div>

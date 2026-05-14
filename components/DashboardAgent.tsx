@@ -8,8 +8,7 @@ import { ticketTypesPricePlaceholder } from '@/lib/ticket-type-price-placeholder
 import { DollarSign, ShoppingCart, CreditCard, UserRound } from 'lucide-react'
 import { notify } from '@/lib/notify'
 import type { Payment, CreatePaymentRequest } from '@/types/api'
-import { PaymentMethod as PaymentMethodEnum } from '@/types/api'
-import { paymentMethodLabels } from '@/types/api'
+import { PaymentMethod as PaymentMethodEnum, formatPaymentMethodLabel } from '@/types/api'
 
 export default function DashboardAgent() {
   const router = useRouter()
@@ -145,7 +144,7 @@ export default function DashboardAgent() {
                   <div>
                     <p className="font-semibold text-ink-900">{payment.amount.toLocaleString()} CDF</p>
                     <p className="text-sm text-ink-600">
-                      {paymentMethodLabels[payment.method]}
+                      {formatPaymentMethodLabel(String(payment.method))}
                     </p>
                     <p className="mt-1 text-xs text-ink-500">
                       {payment.phoneNumber || '—'}
@@ -202,7 +201,6 @@ export default function DashboardAgent() {
                   className="input"
                 >
                   <option value={PaymentMethodEnum.MOBILE_MONEY}>Mobile Money</option>
-                  <option value={PaymentMethodEnum.CASH}>Espèces</option>
                   <option value={PaymentMethodEnum.CARD}>Carte</option>
                 </select>
               </div>
