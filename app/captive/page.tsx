@@ -23,23 +23,23 @@ export default function CaptivePage() {
             <Wifi className="h-8 w-8 text-primary-600" />
           </div>
           
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
+          <h1 className="mb-4 text-3xl font-bold text-ink-900">
             Bienvenue sur le Wi-Fi
           </h1>
           
-          <p className="text-gray-600 mb-2">
+          <p className="mb-2 text-ink-600">
             Club Internet Access
           </p>
           
-          <p className="text-sm text-gray-500 mb-8">
+          <p className="mb-8 text-sm text-ink-500">
             Université de Kinshasa - UNIKIN
           </p>
 
-          <div className="bg-primary-50 rounded-lg p-4 mb-6 transition-colors duration-200">
-            <p className="text-sm text-gray-700 mb-2">
+          <div className="mb-6 rounded-lg bg-primary-50 p-4 transition-colors duration-200">
+            <p className="mb-2 text-sm text-ink-800">
               Pour accéder à Internet, vous devez vous connecter ou créer un compte.
             </p>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-ink-600">
               Cliquez sur le bouton ci-dessous pour continuer.
             </p>
           </div>
@@ -52,7 +52,7 @@ export default function CaptivePage() {
             <ArrowRight className="h-5 w-5 transition-transform duration-300 group-hover:translate-x-1" />
           </button>
 
-          <div className="mt-6 text-xs text-gray-500">
+          <div className="mt-6 text-xs text-ink-500">
             <p>En continuant, vous acceptez nos conditions d'utilisation</p>
           </div>
         </div>

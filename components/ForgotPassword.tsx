@@ -36,10 +36,10 @@ export default function ForgotPassword() {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
               <Mail className="h-8 w-8 text-primary-600" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl font-bold text-ink-900 mb-2">
               Mot de passe oublié?
             </h1>
-            <p className="text-gray-600">
+            <p className="text-ink-600">
               {sent
                 ? 'Vérifiez votre boîte de réception'
                 : 'Entrez votre email pour recevoir un lien de réinitialisation'}
@@ -49,7 +49,7 @@ export default function ForgotPassword() {
           {!sent ? (
             <form onSubmit={handleSubmit} className="space-y-6">
               <div>
-                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="email" className="block text-sm font-medium text-ink-700 mb-2">
                   Adresse email
                 </label>
                 <input
@@ -73,17 +73,17 @@ export default function ForgotPassword() {
             </form>
           ) : (
             <div className="space-y-6">
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p className="text-sm text-green-800">
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                <p className="text-sm text-emerald-900">
                   Si un compte existe avec cette adresse email, vous recevrez un email contenant
                   un lien pour réinitialiser votre mot de passe.
                 </p>
-                <p className="text-sm text-green-800 mt-2">
+                <p className="mt-2 text-sm text-emerald-900">
                   <strong>Le lien est valide pendant 1 heure.</strong>
                 </p>
               </div>
 
-              <div className="text-center text-sm text-gray-600">
+              <div className="text-center text-sm text-ink-600">
                 <p>Vous n'avez pas reçu l'email?</p>
                 <button
                   onClick={() => setSent(false)}

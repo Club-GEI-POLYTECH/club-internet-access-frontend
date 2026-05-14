@@ -90,8 +90,8 @@ export default function DashboardAdmin() {
                 {ticketStats != null ? `${ticketStats.total} au total` : 'Stats tickets indisponibles'}
               </p>
             </div>
-            <div className="p-3 bg-blue-100 rounded-full transition-transform duration-300 hover:scale-110">
-              <Package className="h-6 w-6 text-blue-600" />
+            <div className="rounded-full bg-primary-100 p-3 transition-transform duration-300 hover:scale-110">
+              <Package className="h-6 w-6 text-primary-700" />
             </div>
           </div>
         </div>
@@ -109,8 +109,8 @@ export default function DashboardAdmin() {
                   : ' '}
               </p>
             </div>
-            <div className="p-3 bg-indigo-100 rounded-full transition-transform duration-300 hover:scale-110">
-              <TicketIcon className="h-6 w-6 text-indigo-600" />
+            <div className="rounded-full bg-primary-50 p-3 transition-transform duration-300 hover:scale-110">
+              <TicketIcon className="h-6 w-6 text-primary-700" />
             </div>
           </div>
         </div>
@@ -122,12 +122,12 @@ export default function DashboardAdmin() {
               <p className="font-display text-2xl font-bold text-ink-900">
                 {formatCurrency(stats.payments.revenue)}
               </p>
-              <p className="text-xs text-green-600 mt-1">
+              <p className="mt-1 text-xs text-emerald-700">
                 {`${stats.payments.completed} paiement${stats.payments.completed !== 1 ? 's' : ''} complété${stats.payments.completed !== 1 ? 's' : ''}`}
               </p>
             </div>
-            <div className="p-3 bg-green-100 rounded-full transition-transform duration-300 hover:scale-110">
-              <DollarSign className="h-6 w-6 text-green-600" />
+            <div className="rounded-full bg-emerald-100 p-3 transition-transform duration-300 hover:scale-110">
+              <DollarSign className="h-6 w-6 text-emerald-700" />
             </div>
           </div>
         </div>
@@ -141,8 +141,8 @@ export default function DashboardAdmin() {
               </p>
               <p className="mt-1 text-xs text-ink-500">Si exposé par le backend</p>
             </div>
-            <div className="p-3 bg-emerald-100 rounded-full transition-transform duration-300 hover:scale-110">
-              <ShoppingCart className="h-6 w-6 text-emerald-600" />
+            <div className="rounded-full bg-emerald-100 p-3 transition-transform duration-300 hover:scale-110">
+              <ShoppingCart className="h-6 w-6 text-emerald-700" />
             </div>
           </div>
         </div>
@@ -154,24 +154,24 @@ export default function DashboardAdmin() {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-ink-500">Total</span>
-              <span className="font-semibold">{stats.payments.total}</span>
+              <span className="font-semibold text-ink-900">{stats.payments.total}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-ink-500">Complétés</span>
-              <span className="text-green-600 font-semibold">{stats.payments.completed}</span>
+              <span className="font-semibold text-emerald-700">{stats.payments.completed}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-ink-500">En attente</span>
-              <span className="text-yellow-600 font-semibold">{stats.payments.pending}</span>
+              <span className="font-semibold text-amber-700">{stats.payments.pending}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-ink-500">Échoués</span>
-              <span className="text-red-600 font-semibold">{stats.payments.failed}</span>
+              <span className="font-semibold text-rose-700">{stats.payments.failed}</span>
             </div>
-            <div className="pt-3 border-t border-ink-100">
+            <div className="border-t border-ink-100 pt-3">
               <div className="flex justify-between items-center">
-                <span className="text-ink-900 font-semibold">Revenus</span>
-                <span className="text-xl font-bold text-green-600">
+                <span className="font-semibold text-ink-900">Revenus</span>
+                <span className="text-xl font-bold text-emerald-700">
                   {formatCurrency(stats.payments.revenue)}
                 </span>
               </div>
@@ -196,7 +196,7 @@ export default function DashboardAdmin() {
               <Line
                 type="monotone"
                 dataKey="revenue"
-                stroke="#10b981"
+                stroke="#0891b2"
                 strokeWidth={2}
                 name="Revenus (CDF)"
               />

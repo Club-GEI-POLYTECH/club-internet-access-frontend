@@ -81,11 +81,11 @@ export default function Login() {
               simple &amp; rapide
             </span>
           </h1>
-          <p className="mt-6 max-w-md text-base leading-relaxed text-slate-300">
+          <p className="mt-6 max-w-md text-base leading-relaxed text-primary-100/90">
             Accédez à la vente de tickets, à vos achats et à votre tableau de bord. Un compte est nécessaire pour
             acheter un forfait.
           </p>
-          <div className="mt-10 hidden items-center gap-6 text-sm text-slate-400 lg:flex">
+          <div className="mt-10 hidden items-center gap-6 text-sm text-primary-200/80 lg:flex">
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_12px_rgba(52,211,153,0.8)]" />
               Service UNIKIN

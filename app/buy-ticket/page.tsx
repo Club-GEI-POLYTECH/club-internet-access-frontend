@@ -787,20 +787,20 @@ function BuyTicketContent() {
             Choisissez votre{' '}
             <span className="bg-gradient-to-r from-primary-200 to-cyan-200 bg-clip-text text-transparent">forfait</span>
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-primary-100/90 sm:text-lg">
             Tarifs selon le type (24h, 7 jours, 30 jours…). Sélectionnez un forfait pour afficher les tickets disponibles.
           </p>
 
           {loading ? (
             <div className="mx-auto mt-12 max-w-md rounded-3xl border border-white/15 bg-white/10 p-12 backdrop-blur-md">
               <div className="mx-auto h-12 w-12 animate-spin rounded-full border-2 border-white/20 border-t-primary-300" />
-              <p className="mt-4 text-sm font-medium text-slate-200">Chargement des forfaits…</p>
+              <p className="mt-4 text-sm font-medium text-primary-50">Chargement des forfaits…</p>
             </div>
           ) : catalogTypes.length === 0 ? (
             <div className="mx-auto mt-12 max-w-lg rounded-3xl border border-white/15 bg-white/10 p-12 backdrop-blur-md">
               <ShoppingCart className="mx-auto mb-4 h-16 w-16 text-white/40" />
               <h3 className="font-display text-2xl font-bold text-white">Aucun forfait disponible</h3>
-              <p className="mt-2 text-slate-300">Revenez plus tard ou contactez l&apos;administrateur.</p>
+              <p className="mt-2 text-primary-100/85">Revenez plus tard ou contactez l&apos;administrateur.</p>
             </div>
           ) : (
             <div className="mx-auto mt-12 grid max-w-6xl gap-6 text-left md:grid-cols-2 lg:grid-cols-3">
@@ -904,7 +904,7 @@ function BuyTicketContent() {
           <h1 className="font-display text-3xl font-bold text-white sm:text-4xl">
             {ticketType ? ticketType.name : 'Chargement…'}
           </h1>
-          <p className="mx-auto mt-3 max-w-xl text-slate-300">
+          <p className="mx-auto mt-3 max-w-xl text-primary-100/90">
             {ticketType ? ticketType.description : 'Club Internet Access — Université de Kinshasa'}
           </p>
         </div>

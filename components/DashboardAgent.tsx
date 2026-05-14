@@ -103,8 +103,8 @@ export default function DashboardAgent() {
               <ShoppingCart className="h-8 w-8 text-primary-600" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Catalogue & achat</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="font-semibold text-ink-900">Catalogue & achat</h3>
+              <p className="text-sm text-ink-600">
                 Choisir un forfait 24h, 7 jours ou 30 jours et attribuer un ticket disponible au client.
               </p>
             </div>
@@ -117,42 +117,42 @@ export default function DashboardAgent() {
           onClick={() => router.push('/payments')}
         >
           <div className="flex items-center gap-4">
-            <div className="p-4 bg-green-100 rounded-full">
-              <CreditCard className="h-8 w-8 text-green-600" />
+            <div className="rounded-full bg-emerald-100 p-4">
+              <CreditCard className="h-8 w-8 text-emerald-700" />
             </div>
             <div>
-              <h3 className="font-semibold text-gray-900">Paiements</h3>
-              <p className="text-sm text-gray-600">Historique et suivi des encaissements.</p>
+              <h3 className="font-semibold text-ink-900">Paiements</h3>
+              <p className="text-sm text-ink-600">Historique et suivi des encaissements.</p>
             </div>
           </div>
         </button>
       </div>
 
       <div className="card">
-        <h2 className="text-lg font-semibold mb-4">Paiements récents</h2>
+        <h2 className="mb-4 text-lg font-semibold text-ink-900">Paiements récents</h2>
         {recentPayments.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">Aucun paiement récent</p>
+          <p className="py-4 text-center text-ink-500">Aucun paiement récent</p>
         ) : (
           <div className="space-y-3">
             {recentPayments.map((payment) => (
-              <div key={payment.id} className="border rounded-lg p-3">
-                <div className="flex justify-between items-start">
+              <div key={payment.id} className="rounded-lg border border-ink-200 p-3">
+                <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold">{payment.amount.toLocaleString()} CDF</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="font-semibold text-ink-900">{payment.amount.toLocaleString()} CDF</p>
+                    <p className="text-sm text-ink-600">
                       {paymentMethodLabels[payment.method]}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="mt-1 text-xs text-ink-500">
                       {payment.phoneNumber || '—'}
                     </p>
                   </div>
                   <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
+                    className={`rounded px-2 py-1 text-xs font-medium ${
                       payment.status === 'completed'
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-emerald-100 text-emerald-900'
                         : payment.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-amber-100 text-amber-900'
+                          : 'bg-rose-100 text-rose-900'
                     }`}
                   >
                     {payment.status}
@@ -167,10 +167,10 @@ export default function DashboardAgent() {
       {showPaymentModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
-            <h2 className="text-xl font-bold mb-4">Enregistrer un paiement</h2>
+            <h2 className="mb-4 text-xl font-bold text-ink-900">Enregistrer un paiement</h2>
             <form onSubmit={handleCreatePayment} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Montant (CDF) *</label>
+                <label className="mb-2 block text-sm font-medium text-ink-700">Montant (CDF) *</label>
                 <input
                   type="number"
                   required
@@ -185,7 +185,7 @@ export default function DashboardAgent() {
               </div>
 
               <div>
-                <label htmlFor="payment-method" className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="payment-method" className="mb-2 block text-sm font-medium text-ink-700">
                   Méthode *
                 </label>
                 <select
@@ -205,7 +205,7 @@ export default function DashboardAgent() {
               {(paymentData.method === PaymentMethodEnum.MOBILE_MONEY ||
                 paymentData.method === PaymentMethodEnum.CARD) && (
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Téléphone</label>
+                  <label className="mb-2 block text-sm font-medium text-ink-700">Téléphone</label>
                   <input
                     type="tel"
                     value={paymentData.phoneNumber || ''}

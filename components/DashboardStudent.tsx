@@ -72,8 +72,8 @@ export default function DashboardStudent() {
         </div>
         {myTickets.length === 0 ? (
           <div className="text-center py-8">
-            <Ticket className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-gray-500 mb-4">Aucun ticket pour le moment.</p>
+            <Ticket className="mx-auto mb-4 h-12 w-12 text-ink-400" />
+            <p className="mb-4 text-ink-500">Aucun ticket pour le moment.</p>
             <button type="button" onClick={() => router.push('/buy-ticket')} className="btn btn-primary">
               Voir les forfaits
             </button>
@@ -81,14 +81,14 @@ export default function DashboardStudent() {
         ) : (
           <div className="space-y-3">
             {myTickets.map((t) => (
-              <div key={t.id} className="border rounded-lg p-4 hover:bg-gray-50">
-                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2">
+              <div key={t.id} className="rounded-lg border border-ink-200 p-4 transition-colors hover:bg-ink-50">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                   <div>
-                    <p className="font-mono font-semibold text-lg">{t.username}</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="font-mono text-lg font-semibold text-ink-900">{t.username}</p>
+                    <p className="text-sm text-ink-600">
                       {t.soldAt ? `Acheté le ${format(new Date(t.soldAt), 'dd MMM yyyy HH:mm', { locale: fr })}` : '—'}
                     </p>
-                    <p className="text-xs text-gray-500 mt-1">Statut : {t.status}</p>
+                    <p className="mt-1 text-xs text-ink-500">Statut : {t.status}</p>
                   </div>
                   <button
                     type="button"
@@ -117,25 +117,25 @@ export default function DashboardStudent() {
           </button>
         </div>
         {myPayments.length === 0 ? (
-          <p className="text-gray-500 text-center py-4">Aucun paiement</p>
+          <p className="py-4 text-center text-ink-500">Aucun paiement</p>
         ) : (
           <div className="space-y-3">
             {myPayments.map((payment) => (
-              <div key={payment.id} className="border rounded-lg p-3">
-                <div className="flex justify-between items-start">
+              <div key={payment.id} className="rounded-lg border border-ink-200 p-3">
+                <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold">{payment.amount.toLocaleString()} CDF</p>
-                    <p className="text-sm text-gray-600">
+                    <p className="font-semibold text-ink-900">{payment.amount.toLocaleString()} CDF</p>
+                    <p className="text-sm text-ink-600">
                       {payment.createdAt && format(new Date(payment.createdAt), 'dd MMM yyyy à HH:mm', { locale: fr })}
                     </p>
                   </div>
                   <span
-                    className={`px-2 py-1 rounded text-xs font-medium ${
+                    className={`rounded px-2 py-1 text-xs font-medium ${
                       payment.status === 'completed'
-                        ? 'bg-green-100 text-green-800'
+                        ? 'bg-emerald-100 text-emerald-900'
                         : payment.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
+                          ? 'bg-amber-100 text-amber-900'
+                          : 'bg-rose-100 text-rose-900'
                     }`}
                   >
                     {payment.status}

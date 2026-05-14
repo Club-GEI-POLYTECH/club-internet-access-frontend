@@ -69,7 +69,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
     `group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-200 ${
       active
         ? 'bg-gradient-to-r from-primary-500/20 to-primary-600/10 text-primary-200 shadow-glow-sm border border-primary-400/20'
-        : 'text-slate-300 hover:bg-white/5 hover:text-white border border-transparent'
+        : 'border border-transparent text-primary-100/90 hover:bg-white/5 hover:text-white'
     }`
 
   const NavList = ({ onNavigate }: { onNavigate?: () => void }) => (
@@ -87,7 +87,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors ${
                 isActive
                   ? 'bg-primary-500/30 text-primary-100'
-                  : 'bg-white/5 text-slate-400 group-hover:bg-white/10 group-hover:text-slate-200'
+                  : 'bg-white/5 text-primary-200/75 group-hover:bg-white/10 group-hover:text-primary-50'
               }`}
             >
               <item.icon className="h-5 w-5" strokeWidth={isActive ? 2.25 : 2} />
@@ -125,7 +125,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               onClick={() => setSidebarOpen(false)}
               aria-label="Fermer la barre latérale"
               title="Fermer la barre latérale"
-              className="rounded-lg p-2 text-slate-400 hover:bg-white/10 hover:text-white"
+              className="rounded-lg p-2 text-primary-200/80 hover:bg-white/10 hover:text-white"
             >
               <X className="h-5 w-5" />
             </button>
@@ -136,12 +136,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="truncate text-sm font-semibold text-white">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="truncate text-xs text-slate-400">{user?.email}</p>
+              <p className="truncate text-xs text-primary-200/70">{user?.email}</p>
             </div>
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition-colors hover:bg-red-500/20"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/35 bg-rose-500/10 px-4 py-2.5 text-sm font-medium text-rose-100 transition-colors hover:bg-rose-500/20"
             >
               <LogOut className="h-4 w-4" />
               Déconnexion
@@ -168,12 +168,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <p className="truncate text-sm font-semibold text-white">
                 {user?.firstName} {user?.lastName}
               </p>
-              <p className="truncate text-xs text-slate-400">{user?.email}</p>
+              <p className="truncate text-xs text-primary-200/70">{user?.email}</p>
             </div>
             <button
               type="button"
               onClick={handleLogout}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-red-500/25 bg-red-500/10 px-4 py-2.5 text-sm font-medium text-red-200 transition-all hover:bg-red-500/20"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-sm font-medium text-rose-100 transition-all hover:bg-rose-500/20"
             >
               <LogOut className="h-4 w-4" />
               Déconnexion

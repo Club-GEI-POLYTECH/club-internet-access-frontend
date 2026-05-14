@@ -72,13 +72,13 @@ export default function ResetPassword() {
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-700 px-4">
         <div className="max-w-md w-full">
           <div className="bg-white rounded-2xl shadow-xl p-8 text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-green-100 rounded-full mb-4">
-              <CheckCircle className="h-8 w-8 text-green-600" />
+            <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <CheckCircle className="h-8 w-8 text-emerald-700" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="mb-2 text-3xl font-bold text-ink-900">
               Mot de passe réinitialisé!
             </h1>
-            <p className="text-gray-600 mb-6">
+            <p className="mb-6 text-ink-600">
               Votre mot de passe a été réinitialisé avec succès. Vous allez être redirigé vers la page de connexion.
             </p>
             <Link
@@ -102,17 +102,17 @@ export default function ResetPassword() {
             <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-4">
               <Lock className="h-8 w-8 text-primary-600" />
             </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="mb-2 text-3xl font-bold text-ink-900">
               Réinitialiser le mot de passe
             </h1>
-            <p className="text-gray-600">
+            <p className="text-ink-600">
               Entrez votre nouveau mot de passe
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="newPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="newPassword" className="mb-2 block text-sm font-medium text-ink-700">
                 Nouveau mot de passe
               </label>
               <input
@@ -125,13 +125,13 @@ export default function ResetPassword() {
                 className="input"
                 placeholder="Minimum 8 caractères"
               />
-              <p className="mt-1 text-xs text-gray-500">
+              <p className="mt-1 text-xs text-ink-500">
                 Le mot de passe doit contenir au moins 8 caractères
               </p>
             </div>
 
             <div>
-              <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="confirmPassword" className="mb-2 block text-sm font-medium text-ink-700">
                 Confirmer le mot de passe
               </label>
               <input

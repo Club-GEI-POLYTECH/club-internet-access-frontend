@@ -349,13 +349,13 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
           {uploading || analyzing ? (
             <div>
               <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-primary-600"></div>
-              <p className="text-gray-600">{analyzing ? 'Analyse du CSV...' : 'Importation en cours...'}</p>
+              <p className="text-ink-600">{analyzing ? 'Analyse du CSV...' : 'Importation en cours...'}</p>
             </div>
           ) : (
             <>
-              <Upload className="mx-auto mb-4 h-12 w-12 text-gray-400" />
-              <p className="mb-2 text-gray-600">Glissez-déposez votre fichier CSV ici ou cliquez pour sélectionner</p>
-              <p className="mb-4 text-sm text-gray-500">
+              <Upload className="mx-auto mb-4 h-12 w-12 text-ink-400" />
+              <p className="mb-2 text-ink-600">Glissez-déposez votre fichier CSV ici ou cliquez pour sélectionner</p>
+              <p className="mb-4 text-sm text-ink-500">
                 Format attendu : Username,Password,Profile,Time Limit,Data Limit,Comment
               </p>
               <div className="flex flex-wrap justify-center gap-3">
@@ -393,7 +393,7 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
               </div>
               <div className="rounded-xl bg-white p-3 text-center">
                 <p className="text-xs text-ink-500">Lignes invalides</p>
-                <p className="text-xl font-bold text-red-600">{recommendations.invalidLines ?? '-'}</p>
+                <p className="text-xl font-bold text-rose-700">{recommendations.invalidLines ?? '-'}</p>
               </div>
             </div>
 
@@ -405,7 +405,7 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
             )}
 
             {localPreviewStats && recommendations.validLines === 0 && localPreviewStats.dataLines > 0 && (
-              <div className="mt-3 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+              <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
                 Le backend de prévisualisation retourne 0 ligne valide alors que le fichier contient des lignes. Vérifiez{' '}
                 <code className="rounded bg-white/80 px-1">POST /admin/tickets/import/recommendations</code> (repli 404 :{' '}
                 <code className="rounded bg-white/80 px-1">POST /tickets/admin/import/recommendations</code>).
@@ -460,29 +460,29 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
           <h3 className="font-display mb-4 text-lg font-bold text-ink-900">Résultats de l&apos;importation</h3>
 
           <div className="mb-4 grid grid-cols-3 gap-4">
-            <div className="rounded-lg bg-green-50 p-4 text-center">
-              <CheckCircle className="mx-auto mb-2 h-8 w-8 text-green-600" />
-              <p className="text-2xl font-bold text-green-600">{importResult.imported}</p>
-              <p className="text-sm text-gray-600">Importés</p>
+            <div className="rounded-lg bg-emerald-50 p-4 text-center">
+              <CheckCircle className="mx-auto mb-2 h-8 w-8 text-emerald-700" />
+              <p className="text-2xl font-bold text-emerald-800">{importResult.imported}</p>
+              <p className="text-sm text-ink-600">Importés</p>
             </div>
 
-            <div className="rounded-lg bg-red-50 p-4 text-center">
-              <XCircle className="mx-auto mb-2 h-8 w-8 text-red-600" />
-              <p className="text-2xl font-bold text-red-600">{importResult.failed}</p>
-              <p className="text-sm text-gray-600">Échoués</p>
+            <div className="rounded-lg bg-rose-50 p-4 text-center">
+              <XCircle className="mx-auto mb-2 h-8 w-8 text-rose-700" />
+              <p className="text-2xl font-bold text-rose-800">{importResult.failed}</p>
+              <p className="text-sm text-ink-600">Échoués</p>
             </div>
 
-            <div className="rounded-lg bg-blue-50 p-4 text-center">
-              <FileText className="mx-auto mb-2 h-8 w-8 text-blue-600" />
-              <p className="text-2xl font-bold text-blue-600">{importResult.errors.length}</p>
-              <p className="text-sm text-gray-600">Erreurs</p>
+            <div className="rounded-lg bg-primary-50 p-4 text-center">
+              <FileText className="mx-auto mb-2 h-8 w-8 text-primary-700" />
+              <p className="text-2xl font-bold text-primary-800">{importResult.errors.length}</p>
+              <p className="text-sm text-ink-600">Erreurs</p>
             </div>
           </div>
 
           {importResult.errors.length > 0 && (
-            <div className="rounded-lg bg-red-50 p-4">
-              <p className="mb-2 font-semibold text-red-900">Détails des erreurs :</p>
-              <ul className="list-inside list-disc space-y-1 text-sm text-red-800">
+            <div className="rounded-lg bg-rose-50 p-4">
+              <p className="mb-2 font-semibold text-rose-950">Détails des erreurs :</p>
+              <ul className="list-inside list-disc space-y-1 text-sm text-rose-900">
                 {importResult.errors.map((error, index) => (
                   <li key={index}>{error}</li>
                 ))}
