@@ -1143,11 +1143,11 @@ function BuyTicketContent() {
                           type="button"
                           onClick={() => void handleKelpayUserCancel()}
                           disabled={kelpaySubmitting !== null}
-                          className="btn w-full border border-red-200 bg-white py-2.5 text-sm font-semibold text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          className="btn w-full border border-rose-200 bg-white py-2.5 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-50"
                         >
                           {kelpaySubmitting === 'cancel' ? (
                             <span className="inline-flex items-center justify-center gap-2">
-                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-red-200 border-t-red-600" />
+                              <span className="h-4 w-4 animate-spin rounded-full border-2 border-rose-200 border-t-rose-600" />
                               Annulation…
                             </span>
                           ) : (

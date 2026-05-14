@@ -108,7 +108,7 @@ export default function MyTicketsPage() {
             </span>
             <div>
               <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">Mes tickets</h1>
-              <p className="mt-1 max-w-lg text-sm leading-relaxed text-slate-300 sm:text-base">
+              <p className="mt-1 max-w-lg text-sm leading-relaxed text-primary-100/90 sm:text-base">
                 Historique de vos achats et codes de connexion Wi‑Fi.
               </p>
             </div>
@@ -133,7 +133,7 @@ export default function MyTicketsPage() {
 
         <div className="rounded-3xl border border-white/15 bg-white/10 p-6 backdrop-blur-xl sm:p-8">
           {loading ? (
-            <div className="flex flex-col items-center justify-center py-20 text-slate-200">
+            <div className="flex flex-col items-center justify-center py-20 text-primary-50">
               <div className="mb-4 h-11 w-11 animate-spin rounded-full border-2 border-white/20 border-t-primary-300" />
               <p className="text-sm font-medium">Chargement de vos tickets…</p>
             </div>
@@ -141,7 +141,7 @@ export default function MyTicketsPage() {
             <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/20 bg-white/5 py-16 text-center">
               <ShoppingCart className="mb-4 h-14 w-14 text-white/40" />
               <h2 className="font-display text-xl font-bold text-white">Aucun ticket</h2>
-              <p className="mt-2 max-w-md text-sm text-slate-300">
+              <p className="mt-2 max-w-md text-sm text-primary-100/85">
                 Vous n&apos;avez pas encore acheté de ticket avec ce compte.
               </p>
               <button type="button" onClick={() => router.push('/buy-ticket')} className="btn btn-primary mt-8 px-8">
@@ -168,7 +168,7 @@ export default function MyTicketsPage() {
                         ticket.status === TicketStatus.SOLD
                           ? 'bg-emerald-100 text-emerald-800'
                           : ticket.status === TicketStatus.EXPIRED
-                            ? 'bg-red-100 text-red-800'
+                            ? 'bg-rose-100 text-rose-800'
                             : ticket.status === TicketStatus.RESERVED
                               ? 'bg-amber-100 text-amber-900'
                               : 'bg-ink-100 text-ink-700'

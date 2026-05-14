@@ -20,9 +20,14 @@ Ce projet est configuré pour Vercel avec:
    - Importez ce repository
 
 2. **Configurer les Variables d'Environnement**
-   - Dans Vercel Dashboard → Settings → Environment Variables
-   - Ajoutez: `NEXT_PUBLIC_API_URL=https://votre-backend.railway.app/api`
-   - Remplacez `votre-backend.railway.app` par l'URL réelle de votre backend
+   - Dans Vercel Dashboard → Settings → Environment Variables (environnement **Production**)
+   - Modèle prêt à copier : [`.env.production.example`](./.env.production.example)
+   - **Option directe (recommandée si le backend autorise CORS)** :  
+     `NEXT_PUBLIC_API_URL=https://VOTRE-BACKEND-PROD.example.com/api`  
+     (remplacez par l’URL HTTPS réelle de l’API, avec `/api` si votre backend est préfixé ainsi.)
+   - **Option proxy** (front et API même origine) :  
+     `NEXT_PUBLIC_API_URL=/api` et `API_URL=https://VOTRE-BACKEND-PROD.example.com/api`  
+     (`API_URL` sert au rewrite serveur dans `next.config.js`, voir aussi [`.env.example`](./.env.example).)
 
 3. **Déployer**
    - Vercel détectera automatiquement Next.js
@@ -70,13 +75,15 @@ npm run start
 
 ### Variables d'Environnement
 
-Créez un fichier `.env.local` à la racine :
+- **Local** : copiez [`.env.example`](./.env.example) vers `.env.local` et adaptez.
+- **Production (hébergeur)** : voir [`.env.production.example`](./.env.production.example) — c’est là que vous renseignez le **lien du backend de prod** (`NEXT_PUBLIC_API_URL`, et `API_URL` si vous utilisez le proxy `/api`).
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:4000/api
-```
+Résumé :
 
-- `NEXT_PUBLIC_API_URL`: URL de l'API backend (défaut: `/api` pour le proxy)
+| Variable | Rôle |
+|----------|------|
+| `NEXT_PUBLIC_API_URL` | Base API côté navigateur (`https://…/api` ou `/api` en proxy) |
+| `API_URL` | Cible du rewrite `/api/*` (serveur uniquement), requise en prod si `NEXT_PUBLIC_API_URL=/api` |
 
 ### Fichiers Importants
 
