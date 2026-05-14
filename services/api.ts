@@ -4,7 +4,7 @@ import { getToken, removeToken } from '@/lib/auth'
 import { getApiUrl } from '@/lib/api-endpoints'
 import { formatApiConnectionError } from '@/lib/api-errors'
 import { logger } from '@/lib/logger'
-import type { Payment } from '@/types/api'
+import type { Payment, RegisterInitRequest, RegisterVerifyRequest, LoginResponse } from '@/types/api'
 import type {
   InitiateKelpayPaymentRequest,
   InitiateKelpayPaymentResponse,
@@ -73,13 +73,28 @@ export const authService = {
     return response.data
   },
 
-  register: async (data: any) => {
-    const response = await api.post('/auth/register', data)
+  registerRequest: async (data: RegisterInitRequest) => {
+    const body: RegisterInitRequest = {
+      email: data.email.trim().toLowerCase(),
+      password: data.password,
+      firstName: data.firstName.trim(),
+      lastName: data.lastName.trim(),
+      ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
+    }
+    const response = await api.post('/auth/register/request', body)
     return response.data
   },
 
-  sendRegisterEmailCode: async (email: string) => {
-    const response = await api.post('/auth/register/send-email-code', { email: email.trim().toLowerCase() })
+  registerVerify: async (data: RegisterVerifyRequest): Promise<LoginResponse> => {
+    const response = await api.post('/auth/register/verify', {
+      email: data.email.trim().toLowerCase(),
+      code: data.code.trim(),
+    })
+    return response.data
+  },
+
+  registerResend: async (email: string) => {
+    const response = await api.post('/auth/register/resend', { email: email.trim().toLowerCase() })
     return response.data
   },
 

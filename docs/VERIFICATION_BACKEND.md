@@ -28,10 +28,12 @@ Ce document liste toutes les vérifications nécessaires au niveau du backend ap
 }
 ```
 
-#### **POST `/api/auth/register`**
-- [ ] Permet de créer un compte avec le rôle `student` par défaut
-- [ ] Valide que seuls les étudiants peuvent s'inscrire (pas `admin` ni `agent` via l'inscription publique)
-- [ ] Retourne l'utilisateur créé avec tous les champs
+#### **Inscription par e-mail (flux en 3 appels, préfixe `/api/auth`)**
+
+- [ ] **POST `/api/auth/register/request`** — corps : `email`, `password`, `firstName`, `lastName`, `phone` (optionnel) ; envoie le code e-mail
+- [ ] **POST `/api/auth/register/verify`** — corps : `email`, `code` ; retourne `access_token` (+ `user` si exposé), aligné login
+- [ ] **POST `/api/auth/register/resend`** — corps : `email` ; renvoie le code
+- [ ] Rôle `student` par défaut après vérification ; pas d’inscription publique `admin` / `agent`
 
 ---
 

@@ -7,14 +7,13 @@ import { UserPlus, Sparkles, Mail } from 'lucide-react'
 import { notify } from '@/lib/notify'
 import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/contexts/AuthContext'
-import type { RegisterRequest } from '@/types/api'
 import { logger } from '@/lib/logger'
 import { isSixDigitVerificationCode, isValidRegistrationEmail } from '@/lib/register-email'
 
 function RegisterPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { login } = useAuth()
+  const { applyAuthResponse } = useAuth()
 
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
@@ -38,6 +37,14 @@ function RegisterPageContent() {
     return () => window.clearInterval(id)
   }, [resendCooldown])
 
+  const resetVerificationState = () => {
+    if (codeSent) {
+      setCodeSent(false)
+      setEmailVerificationCode('')
+      setResendCooldown(0)
+    }
+  }
+
   const handleEmailChange = (value: string) => {
     setEmail(value)
     setCodeSent(false)
@@ -51,21 +58,47 @@ function RegisterPageContent() {
       notify.error('Adresse e-mail invalide')
       return
     }
+    if (!firstName.trim() || !lastName.trim()) {
+      notify.error('Renseignez le prénom et le nom avant d’envoyer le code')
+      return
+    }
+    if (password.length < 6) {
+      notify.error('Le mot de passe doit contenir au moins 6 caractères')
+      return
+    }
+    if (password !== confirmPassword) {
+      notify.error('Les mots de passe ne correspondent pas')
+      return
+    }
+
     setSendingCode(true)
-    logger.log('Register: demande code e-mail', { email: trimmed })
+    logger.log('Register: demande code e-mail', { email: trimmed, firstSend: !codeSent })
     try {
-      await apiClient.auth.sendRegisterEmailCode(trimmed)
+      if (!codeSent) {
+        await apiClient.auth.registerRequest({
+          email: trimmed,
+          password,
+          firstName: firstName.trim(),
+          lastName: lastName.trim(),
+          phone: phone.trim() || undefined,
+        })
+      } else {
+        await apiClient.auth.registerResend(trimmed)
+      }
       setEmail(trimmed)
       setCodeSent(true)
       setResendCooldown(60)
-      notify.success('Code à 6 chiffres envoyé', 'Vérifiez votre boîte de réception et le dossier courrier indésirable.')
-      logger.info('Register: code e-mail demandé', { email: trimmed })
+      notify.success(
+        'Code à 6 chiffres envoyé',
+        'Vérifiez votre boîte de réception et le dossier courrier indésirable.',
+      )
+      logger.info('Register: code e-mail demandé ou renvoyé', { email: trimmed })
     } catch (error: unknown) {
       logger.error('Register: échec envoi code', error)
       const message =
         error instanceof Error
           ? error.message
-          : 'Impossible d’envoyer le code. Vérifiez que le backend expose POST /auth/register/send-email-code'
+          : 'Impossible d’envoyer le code. Vérifiez que le backend expose POST /auth/register/request (ou /resend).'
       notify.error(message)
     } finally {
       setSendingCode(false)
@@ -89,29 +122,17 @@ function RegisterPageContent() {
       return
     }
 
-    if (password !== confirmPassword) {
-      notify.error('Les mots de passe ne correspondent pas')
-      return
-    }
-
     setLoading(true)
-    logger.log('Register: soumission du formulaire', { email: trimmedEmail })
+    logger.log('Register: vérification du code (register/verify)', { email: trimmedEmail })
 
     try {
-      const payload: RegisterRequest = {
+      const loginResponse = await apiClient.auth.registerVerify({
         email: trimmedEmail,
-        password,
-        firstName,
-        lastName,
-        phone: phone || undefined,
-        emailVerificationCode: emailVerificationCode.trim(),
-      }
-
-      await apiClient.auth.register(payload)
-      notify.success('Compte créé', 'Connexion en cours…')
-      logger.info('Register: compte créé, tentative de connexion', { email: trimmedEmail })
-
-      await login(trimmedEmail, password)
+        code: emailVerificationCode.trim(),
+      })
+      applyAuthResponse(loginResponse)
+      notify.success('Compte créé', 'Bienvenue !')
+      logger.info('Register: inscription finalisée', { email: trimmedEmail })
 
       const target = redirectTo || '/dashboard'
       router.push(target)
@@ -123,7 +144,7 @@ function RegisterPageContent() {
           : error instanceof Error
             ? error.message
             : undefined
-      notify.error(message || 'Erreur lors de la création du compte')
+      notify.error(message || 'Erreur lors de la validation du code ou de la création du compte')
     } finally {
       setLoading(false)
     }
@@ -153,11 +174,110 @@ function RegisterPageContent() {
               </div>
               <h2 className="font-display text-2xl font-bold text-ink-900">Créer un compte</h2>
               <p className="mt-2 text-sm text-ink-500">
-                Vérification par e-mail (code à 6 chiffres), puis inscription en base — limite les faux comptes.
+                <span className="font-semibold text-ink-700">Étape 1 :</span> remplissez le formulaire et cliquez sur{' '}
+                <span className="font-medium">Envoyer le code</span>.{' '}
+                <span className="font-semibold text-ink-700">Étape 2 :</span> saisissez le code reçu, puis{' '}
+                <span className="font-medium">Valider le code et créer mon compte</span>.
               </p>
             </div>
 
             <form onSubmit={handleSubmit} className="relative mt-8 space-y-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="firstName" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    Prénom *
+                  </label>
+                  <input
+                    id="firstName"
+                    type="text"
+                    required
+                    value={firstName}
+                    onChange={(e) => {
+                      setFirstName(e.target.value)
+                      resetVerificationState()
+                    }}
+                    className="input"
+                    placeholder="Jean"
+                    autoComplete="given-name"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="lastName" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    Nom *
+                  </label>
+                  <input
+                    id="lastName"
+                    type="text"
+                    required
+                    value={lastName}
+                    onChange={(e) => {
+                      setLastName(e.target.value)
+                      resetVerificationState()
+                    }}
+                    className="input"
+                    placeholder="Kabasele"
+                    autoComplete="family-name"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label htmlFor="phone" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Téléphone <span className="font-normal normal-case text-ink-400">(optionnel)</span>
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => {
+                    setPhone(e.target.value)
+                    resetVerificationState()
+                  }}
+                  className="input"
+                  placeholder="+243900000000"
+                  autoComplete="tel"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label htmlFor="password" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    Mot de passe *
+                  </label>
+                  <input
+                    id="password"
+                    type="password"
+                    required
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      resetVerificationState()
+                    }}
+                    className="input"
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="confirmPassword" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
+                    Confirmation *
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    type="password"
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => {
+                      setConfirmPassword(e.target.value)
+                      resetVerificationState()
+                    }}
+                    className="input"
+                    placeholder="••••••••"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+
               <div>
                 <label htmlFor="email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
                   E-mail *
@@ -176,12 +296,20 @@ function RegisterPageContent() {
                   <button
                     type="button"
                     onClick={() => void handleSendCode()}
-                    disabled={sendingCode || resendCooldown > 0 || !isValidRegistrationEmail(email.trim())}
-                    className="btn btn-secondary shrink-0 whitespace-nowrap px-4 py-2.5 text-sm disabled:opacity-50"
+                    disabled={
+                      sendingCode ||
+                      resendCooldown > 0 ||
+                      !isValidRegistrationEmail(email.trim()) ||
+                      !firstName.trim() ||
+                      !lastName.trim() ||
+                      password.length < 6 ||
+                      password !== confirmPassword
+                    }
+                    className="btn btn-primary shrink-0 whitespace-nowrap px-4 py-2.5 text-sm shadow-glow-sm disabled:opacity-50"
                     aria-label={
                       codeSent
                         ? 'Renvoyer le code de vérification par e-mail'
-                        : 'Envoyer un code de vérification à 6 chiffres par e-mail'
+                        : 'Étape 1 — envoyer un code de vérification à 6 chiffres par e-mail'
                     }
                   >
                     {sendingCode ? (
@@ -199,7 +327,8 @@ function RegisterPageContent() {
                   </button>
                 </div>
                 <p className="mt-1.5 text-xs text-ink-500">
-                  Un code à 6 chiffres vous est envoyé ; saisissez-le ci-dessous avant de créer le compte.
+                  Ce bouton n’est actif que lorsque prénom, nom, e-mail et mot de passe (identiques ×2) sont valides. Il
+                  appelle l’API d’inscription <span className="font-medium">request</span> (puis <span className="font-medium">resend</span> si vous renvoyez le code).
                 </p>
               </div>
 
@@ -214,103 +343,42 @@ function RegisterPageContent() {
                   autoComplete="one-time-code"
                   pattern="[0-9]{6}"
                   maxLength={6}
-                  required
+                  required={codeSent}
+                  disabled={!codeSent}
                   value={emailVerificationCode}
                   onChange={(e) => setEmailVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  className="input font-mono tracking-[0.35em]"
-                  placeholder="000000"
+                  className="input font-mono tracking-[0.35em] disabled:cursor-not-allowed disabled:bg-ink-100 disabled:text-ink-400"
+                  placeholder={codeSent ? '000000' : '— envoyez le code d’abord —'}
+                  title={codeSent ? undefined : 'Utilisez « Envoyer le code » après avoir rempli le formulaire'}
                 />
+                {!codeSent ? (
+                  <p className="mt-1.5 text-xs text-ink-500">Ce champ s’active après l’étape « Envoyer le code ».</p>
+                ) : null}
               </div>
 
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="firstName" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-                    Prénom
-                  </label>
-                  <input
-                    id="firstName"
-                    type="text"
-                    required
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    className="input"
-                    placeholder="Jean"
-                    autoComplete="given-name"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="lastName" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-                    Nom
-                  </label>
-                  <input
-                    id="lastName"
-                    type="text"
-                    required
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    className="input"
-                    placeholder="Kabasele"
-                    autoComplete="family-name"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="phone" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-                  Téléphone <span className="font-normal normal-case text-ink-400">(optionnel)</span>
-                </label>
-                <input
-                  id="phone"
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="input"
-                  placeholder="+243900000000"
-                  autoComplete="tel"
-                />
-              </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label htmlFor="password" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-                    Mot de passe
-                  </label>
-                  <input
-                    id="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="input"
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="confirmPassword" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-ink-500">
-                    Confirmation
-                  </label>
-                  <input
-                    id="confirmPassword"
-                    type="password"
-                    required
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    className="input"
-                    placeholder="••••••••"
-                    autoComplete="new-password"
-                  />
-                </div>
-              </div>
-
-              <button type="submit" disabled={loading} className="btn btn-primary mt-2 w-full py-3.5">
+              <button
+                type="submit"
+                disabled={
+                  loading ||
+                  !codeSent ||
+                  !isSixDigitVerificationCode(emailVerificationCode)
+                }
+                className="btn btn-primary mt-2 w-full py-3.5 disabled:pointer-events-none disabled:opacity-50"
+                title={
+                  !codeSent
+                    ? 'Envoyez d’abord le code sur votre e-mail'
+                    : !isSixDigitVerificationCode(emailVerificationCode)
+                      ? 'Saisissez les 6 chiffres reçus par e-mail'
+                      : undefined
+                }
+              >
                 {loading ? (
                   <span className="inline-flex items-center gap-2">
                     <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                    Création…
+                    Validation…
                   </span>
                 ) : (
-                  'Créer mon compte'
+                  'Étape 2 — Valider le code et créer mon compte'
                 )}
               </button>
             </form>

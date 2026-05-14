@@ -10,6 +10,8 @@ interface AuthContextType {
   user: User | null
   token: string | null
   login: (email: string, password: string) => Promise<void>
+  /** Après `POST /auth/register/verify` : applique le JWT sans refaire un login. */
+  applyAuthResponse: (response: LoginResponse) => void
   logout: () => void
   loading: boolean
 }
@@ -50,14 +52,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const applyAuthResponse = (response: LoginResponse) => {
+    setToken(response.access_token)
+    setUser(response.user)
+    setAuthToken(response.access_token)
+    authService.setToken(response.access_token)
+  }
+
   const login = async (email: string, password: string) => {
     logger.log('AuthContext: tentative de connexion', { email })
     try {
       const response: LoginResponse = await authService.login(email, password)
-      setToken(response.access_token)
-      setUser(response.user)
-      setAuthToken(response.access_token) // Utilise lib/auth pour stocker
-      authService.setToken(response.access_token)
+      applyAuthResponse(response)
       logger.info('AuthContext: connexion réussie', { email: response.user.email, role: response.user.role })
     } catch (error) {
       logger.error('AuthContext: connexion échouée', { email }, error)
@@ -78,7 +84,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, applyAuthResponse, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )

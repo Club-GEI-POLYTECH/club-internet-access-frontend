@@ -39,6 +39,23 @@ export interface LoginResponse {
   user: User
 }
 
+/** Corps POST `/auth/register/request` (envoi du code e-mail) — aligné Postman */
+export interface RegisterInitRequest {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  phone?: string
+}
+
+/** Corps POST `/auth/register/verify` — aligné Postman */
+export interface RegisterVerifyRequest {
+  email: string
+  /** Code à 6 chiffres reçu par e-mail */
+  code: string
+}
+
+/** @deprecated Ancien flux monolithique ; préférer RegisterInitRequest + RegisterVerifyRequest */
 export interface RegisterRequest {
   email: string
   password: string
@@ -46,7 +63,6 @@ export interface RegisterRequest {
   lastName: string
   phone?: string
   role?: UserRole
-  /** Code à 6 chiffres reçu par e-mail — requis si le backend impose la vérification avant inscription */
   emailVerificationCode?: string
 }
 

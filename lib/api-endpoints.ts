@@ -1,6 +1,6 @@
 /**
  * Routes de l'API backend - Club Internet Access
- * Aligné sur la collection Postman (baseUrl: http://localhost:4000/api)
+ * Aligné collection Postman (chemins relatifs à la base API, ex. `http://localhost:4000/api`).
  * Les chemins sont relatifs à API_URL (ex: API_URL + '/auth/login').
  *
  * Usage: import { API_ENDPOINTS } from '@/lib/api-endpoints'
@@ -37,11 +37,11 @@ export const API_ENDPOINTS = {
     health: '/health',
   },
 
-  // --- Auth ---
+  // --- Auth (collection Postman : register/request, verify, resend) ---
   auth: {
-    register: '/auth/register',
-    /** Envoi du code e-mail (inscription) — voir doc backend */
-    registerSendEmailCode: '/auth/register/send-email-code',
+    registerRequest: '/auth/register/request',
+    registerVerify: '/auth/register/verify',
+    registerResend: '/auth/register/resend',
     login: '/auth/login',
     profile: '/auth/profile',
     forgotPassword: '/auth/forgot-password',

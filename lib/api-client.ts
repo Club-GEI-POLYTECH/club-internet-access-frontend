@@ -8,7 +8,8 @@
 import type {
   LoginRequest,
   LoginResponse,
-  RegisterRequest,
+  RegisterInitRequest,
+  RegisterVerifyRequest,
   User,
   Payment,
   CreatePaymentRequest,
@@ -230,19 +231,41 @@ export const apiClient = {
       return response
     },
 
-    register: async (data: RegisterRequest): Promise<User> => {
-      return apiRequest<User>('/auth/register', {
+    /** POST /auth/register/request — enregistre l’intention + envoie le code e-mail (Postman). */
+    registerRequest: async (data: RegisterInitRequest): Promise<{ message?: string }> => {
+      const body: RegisterInitRequest = {
+        email: data.email.trim().toLowerCase(),
+        password: data.password,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
+      }
+      return apiRequest<{ message?: string }>('/auth/register/request', {
         method: 'POST',
-        body: JSON.stringify(data),
+        body: JSON.stringify(body),
       })
     },
 
-    /**
-     * Demande l’envoi d’un code à 6 chiffres sur l’e-mail (anti-bot / adresses fictives).
-     * Backend attendu : POST /auth/register/send-email-code — corps `{ "email": "..." }`
-     */
-    sendRegisterEmailCode: async (email: string): Promise<{ message?: string }> => {
-      return apiRequest<{ message?: string }>('/auth/register/send-email-code', {
+    /** POST /auth/register/verify — valide le code et retourne un JWT (Postman). */
+    registerVerify: async (data: RegisterVerifyRequest): Promise<LoginResponse> => {
+      const raw = await apiRequest<{ access_token: string; user?: User }>('/auth/register/verify', {
+        method: 'POST',
+        body: JSON.stringify({
+          email: data.email.trim().toLowerCase(),
+          code: data.code.trim(),
+        }),
+      })
+      setToken(raw.access_token)
+      if (raw.user) {
+        return { access_token: raw.access_token, user: raw.user }
+      }
+      const user = await apiRequest<User>('/auth/profile')
+      return { access_token: raw.access_token, user }
+    },
+
+    /** POST /auth/register/resend — renvoie le code (Postman : `{ "email" }` seul). */
+    registerResend: async (email: string): Promise<{ message?: string }> => {
+      return apiRequest<{ message?: string }>('/auth/register/resend', {
         method: 'POST',
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
       })
