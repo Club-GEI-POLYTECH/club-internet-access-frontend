@@ -9,6 +9,7 @@ import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
 import { isSixDigitVerificationCode, isValidRegistrationEmail } from '@/lib/register-email'
+import { getSafeInternalRedirect, getSafeRedirectPath } from '@/lib/safe-redirect'
 
 function RegisterPageContent() {
   const router = useRouter()
@@ -28,6 +29,7 @@ function RegisterPageContent() {
   const [resendCooldown, setResendCooldown] = useState(0)
 
   const redirectTo = searchParams.get('redirectTo')
+  const safeRedirectTarget = getSafeInternalRedirect(redirectTo)
 
   useEffect(() => {
     if (resendCooldown <= 0) return
@@ -134,8 +136,7 @@ function RegisterPageContent() {
       notify.success('Compte créé', 'Bienvenue !')
       logger.info('Register: inscription finalisée', { email: trimmedEmail })
 
-      const target = redirectTo || '/dashboard'
-      router.push(target)
+      router.push(getSafeRedirectPath(redirectTo, '/dashboard'))
     } catch (error: unknown) {
       logger.error('Register: échec inscription', error)
       const message =
@@ -386,7 +387,11 @@ function RegisterPageContent() {
             <p className="relative mt-8 text-center text-sm text-ink-500">
               Déjà inscrit ?{' '}
               <Link
-                href={redirectTo ? `/login?redirectTo=${encodeURIComponent(redirectTo)}` : '/login'}
+                href={
+                  safeRedirectTarget
+                    ? `/login?redirectTo=${encodeURIComponent(safeRedirectTarget)}`
+                    : '/login'
+                }
                 className="font-semibold text-primary-600 hover:text-primary-800"
               >
                 Se connecter

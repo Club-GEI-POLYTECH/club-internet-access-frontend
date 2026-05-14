@@ -1,88 +1,63 @@
-// Gestion de l'authentification et du token
+/**
+ * Stockage unique du JWT pour le navigateur : **localStorage** + cookie synchronisé
+ * (`SameSite=Strict`, `Secure` en production). Ce cookie **n’est pas HttpOnly** (écrit en JS) :
+ * il reste lisible par tout script de la page (risque XSS). Pour un niveau supérieur,
+ * le backend ou un BFF Next.js doit poser un cookie **HttpOnly** et le middleware lit la session.
+ */
 
 import { logger } from './logger'
 
-/**
- * Gestion de l'authentification avec localStorage
- * Pour utiliser cookies, décommentez la section en bas de fichier
- */
+const TOKEN_KEY = 'token'
+const COOKIE_MAX_AGE_SEC = 7 * 24 * 60 * 60
 
-/**
- * Stocke le token d'authentification
- * Utilise localStorage par défaut, peut être adapté pour cookies
- */
-export const setToken = (token: string) => {
-  if (typeof window !== 'undefined') {
-    localStorage.setItem('token', token)
-    logger.info('Auth: token stocké')
-  }
-}
-
-/**
- * Récupère le token d'authentification
- */
-export const getToken = (): string | null => {
-  if (typeof window !== 'undefined') {
-    const token = localStorage.getItem('token')
-    logger.debug('Auth: getToken', token ? 'token présent' : 'aucun token')
-    return token
+function readTokenFromCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  for (const part of document.cookie.split(';')) {
+    const p = part.trim()
+    if (!p.startsWith(`${TOKEN_KEY}=`)) continue
+    const raw = p.slice(TOKEN_KEY.length + 1)
+    if (!raw) return null
+    try {
+      return decodeURIComponent(raw)
+    } catch {
+      return raw
+    }
   }
   return null
 }
 
-/**
- * Supprime le token d'authentification
- */
-export const removeToken = () => {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('token')
-    logger.info('Auth: token supprimé')
-  }
+export const setToken = (token: string) => {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(TOKEN_KEY, token)
+  const secure = process.env.NODE_ENV === 'production' ? '; Secure' : ''
+  document.cookie = `${TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=${COOKIE_MAX_AGE_SEC}; SameSite=Strict${secure}`
+  logger.info('Auth: token stocké')
 }
 
-/**
- * Vérifie si l'utilisateur est authentifié
- */
+export const getToken = (): string | null => {
+  if (typeof window === 'undefined') return null
+  const fromCookie = readTokenFromCookie()
+  if (fromCookie) {
+    if (localStorage.getItem(TOKEN_KEY) !== fromCookie) {
+      localStorage.setItem(TOKEN_KEY, fromCookie)
+    }
+    logger.debug('Auth: getToken', 'token présent (cookie)')
+    return fromCookie
+  }
+  const fromLs = localStorage.getItem(TOKEN_KEY)
+  logger.debug('Auth: getToken', fromLs ? 'token présent (localStorage)' : 'aucun token')
+  return fromLs
+}
+
+export const removeToken = () => {
+  if (typeof window === 'undefined') return
+  localStorage.removeItem(TOKEN_KEY)
+  document.cookie = `${TOKEN_KEY}=; path=/; max-age=0`
+  logger.info('Auth: token supprimé')
+}
+
 export const isAuthenticated = (): boolean => {
   const ok = getToken() !== null
   logger.debug('Auth: isAuthenticated', ok)
   return ok
 }
-
-/* 
- * ============================================
- * ALTERNATIVE AVEC COOKIES (Plus sécurisé)
- * ============================================
- * 
- * Pour activer les cookies au lieu de localStorage :
- * 1. Décommentez le code ci-dessous
- * 2. Commentez les fonctions ci-dessus
- * 3. js-cookie est déjà installé (npm install js-cookie @types/js-cookie)
- * 
- * Avantages des cookies :
- * - httpOnly possible (côté serveur)
- * - Secure flag en production
- * - SameSite protection
- * 
-import Cookies from 'js-cookie'
-
-export const setToken = (token: string) => {
-  Cookies.set('token', token, {
-    expires: 7, // 7 jours
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'strict'
-  })
-}
-
-export const getToken = (): string | null => {
-  return Cookies.get('token') || null
-}
-
-export const removeToken = () => {
-  Cookies.remove('token')
-}
-
-export const isAuthenticated = (): boolean => {
-  return getToken() !== null
-}
-*/

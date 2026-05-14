@@ -2,6 +2,14 @@
 
 Interface web Next.js pour la **vente de tickets Wi‑Fi** (catalogue, achat KELPAY / Mobile Money, mes tickets, administration des imports CSV).
 
+## Sécurité (rappels frontend)
+
+- **Alignement API / rôles / throttling** : voir [docs/FRONTEND_SECURITY_SYNC.md](./docs/FRONTEND_SECURITY_SYNC.md) (`/api/users` admin uniquement, webhook paiement côté serveur, 429 sur l’auth, etc.).
+- **Redirections** : le paramètre `redirectTo` est validé (`lib/safe-redirect.ts`) pour limiter les open redirects (chemins internes uniquement).
+- **JWT** : stockage centralisé dans [`lib/auth.ts`](./lib/auth.ts) (localStorage + cookie synchronisé, non HttpOnly). Pour durcir : cookie **HttpOnly** posé par le backend ou un BFF.
+- **En-têtes HTTP** : `next.config.js` définit CSP (pragmatique pour Next), `X-Frame-Options`, `nosniff`, `Referrer-Policy`, `Permissions-Policy`, et **HSTS** en production.
+- **Dépendances** : exécuter `npm audit` régulièrement. Une passe **`npm audit fix`** a été appliquée (axios, transitive faibles, etc.). Des alertes **élevées** liées à **Next.js 14** et à la chaîne **eslint-config-next / glob** restent sans correctif sans breaking change (`npm audit fix --force` proposerait Next 16). À traiter par **montée de version planifiée** de Next / ESLint ou suivi des correctifs upstream ; en production, garder le reverse proxy et l’OS à jour.
+
 ## 🚀 Déploiement sur Vercel
 
 ### Configuration Automatique

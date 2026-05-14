@@ -50,7 +50,21 @@ api.interceptors.response.use(
         window.location.href = '/login'
       }
     }
-    if (error.response?.data?.message) {
+    if (error.response?.status === 429) {
+      const m = error.response?.data?.message
+      const fromApi = Array.isArray(m) ? m.join(', ') : m
+      error.message =
+        fromApi && String(fromApi).trim()
+          ? String(fromApi).trim()
+          : 'Trop de tentatives ou trop de requêtes. Patientez quelques instants avant de réessayer.'
+    } else if (error.response?.status === 503) {
+      const m = error.response?.data?.message
+      const fromApi = Array.isArray(m) ? m.join(', ') : m
+      error.message =
+        fromApi && String(fromApi).trim()
+          ? String(fromApi).trim()
+          : 'Service temporairement indisponible. Réessayez dans quelques minutes.'
+    } else if (error.response?.data?.message) {
       error.message = error.response.data.message
     } else if (!error.response) {
       error.message = formatApiConnectionError(error).message

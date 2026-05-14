@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
 import { notify } from '@/lib/notify'
+import { getSafeInternalRedirect } from '@/lib/safe-redirect'
 import { Wifi, Sparkles, ArrowRight } from 'lucide-react'
 
 export default function Login() {
@@ -16,6 +17,7 @@ export default function Login() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo')
+  const safeRedirectTarget = getSafeInternalRedirect(redirectTo)
 
   useEffect(() => {
     if (
@@ -48,7 +50,7 @@ export default function Login() {
         const httpsUrl = window.location.href.replace('http://', 'https://')
         window.location.href = httpsUrl.replace('/login', '/')
       } else {
-        router.push(redirectTo || '/')
+        router.push(safeRedirectTarget ?? '/')
       }
     } catch (error: unknown) {
       logger.error('Login: échec connexion', error)
@@ -177,7 +179,11 @@ export default function Login() {
               <p className="relative mt-6 text-center text-sm text-ink-500">
                 Pas encore de compte ?{' '}
                 <Link
-                  href={redirectTo ? `/register?redirectTo=${encodeURIComponent(redirectTo)}` : '/register'}
+                  href={
+                    safeRedirectTarget
+                      ? `/register?redirectTo=${encodeURIComponent(safeRedirectTarget)}`
+                      : '/register'
+                  }
                   className="font-semibold text-primary-600 hover:text-primary-800"
                 >
                   Créer un compte

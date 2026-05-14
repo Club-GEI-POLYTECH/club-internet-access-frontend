@@ -45,6 +45,8 @@ import {
   normalizeTicketTypeList,
 } from './normalize-ticket-api'
 import { normalizeAdminTicketsStats } from './normalize-admin-ticket-stats'
+import { getToken, setToken, removeToken } from './auth'
+import { sanitizePublicUser } from './sanitize-user'
 
 const API_URL = getApiUrl()
 
@@ -101,34 +103,6 @@ type TicketImportRecommendations = {
   invalidLines?: number
 }
 
-const getToken = (): string | null => {
-  if (typeof window === 'undefined') return null
-
-  const cookies = document.cookie.split(';')
-  const tokenCookie = cookies.find(c => c.trim().startsWith('token='))
-  if (tokenCookie) {
-    return tokenCookie.split('=')[1]
-  }
-
-  return localStorage.getItem('token')
-}
-
-const setToken = (token: string): void => {
-  if (typeof window === 'undefined') return
-
-  document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Strict${process.env.NODE_ENV === 'production' ? '; Secure' : ''}`
-
-  localStorage.setItem('token', token)
-}
-
-const removeToken = (): void => {
-  if (typeof window === 'undefined') return
-
-  document.cookie = 'token=; path=/; max-age=0'
-
-  localStorage.removeItem('token')
-}
-
 async function fetchApi(url: string, init: RequestInit): Promise<Response> {
   try {
     return await fetch(url, init)
@@ -177,6 +151,33 @@ async function apiRequest<T>(
   if (response.status === 404) {
     logger.warn('API: 404 Not Found', { endpoint })
     throw new Error('Ressource non trouvée.')
+  }
+
+  if (response.status === 429) {
+    logger.warn('API: 429 Too Many Requests', { endpoint })
+    let message =
+      'Trop de tentatives ou trop de requêtes. Patientez quelques instants avant de réessayer (limite côté serveur).'
+    try {
+      const error: ApiError = await response.json()
+      const m = Array.isArray(error.message) ? error.message.join(', ') : error.message
+      if (m && String(m).trim()) message = String(m).trim()
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message)
+  }
+
+  if (response.status === 503) {
+    logger.warn('API: 503 Service Unavailable', { endpoint })
+    let message = 'Service temporairement indisponible. Réessayez dans quelques minutes.'
+    try {
+      const error: ApiError = await response.json()
+      const m = Array.isArray(error.message) ? error.message.join(', ') : error.message
+      if (m && String(m).trim()) message = String(m).trim()
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message)
   }
 
   if (!response.ok) {
@@ -384,11 +385,13 @@ export const apiClient = {
   users: {
     list: async (): Promise<User[]> => {
       const raw = await apiRequest<User[] | unknown>('/users')
-      return Array.isArray(raw) ? raw : []
+      const list = Array.isArray(raw) ? raw : []
+      return list.map((u) => sanitizePublicUser(u as User))
     },
 
     getById: async (id: string): Promise<User> => {
-      return apiRequest<User>(`/users/${id}`)
+      const u = await apiRequest<User>(`/users/${id}`)
+      return sanitizePublicUser(u)
     },
 
     create: async (data: CreateUserRequest): Promise<User> => {
@@ -400,17 +403,19 @@ export const apiClient = {
         role: data.role,
         ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
       }
-      return apiRequest<User>('/users', {
+      const u = await apiRequest<User>('/users', {
         method: 'POST',
         body: JSON.stringify(body),
       })
+      return sanitizePublicUser(u)
     },
 
     update: async (id: string, data: UpdateUserRequest): Promise<User> => {
-      return apiRequest<User>(`/users/${id}`, {
+      const u = await apiRequest<User>(`/users/${id}`, {
         method: 'PUT',
         body: JSON.stringify(data),
       })
+      return sanitizePublicUser(u)
     },
 
     delete: async (id: string): Promise<void> => {
