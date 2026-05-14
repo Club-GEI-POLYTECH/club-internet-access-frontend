@@ -2,7 +2,8 @@
 
 ## Sécurité et contrat API
 
-- **[FRONTEND_SECURITY_SYNC.md](./FRONTEND_SECURITY_SYNC.md)** — utilisateurs admin-only, webhook paiement, 429, Swagger prod, CORS / KELPAY, achat ticket.
+- **[FRONTEND_SECURITY_SYNC.md](./FRONTEND_SECURITY_SYNC.md)** — utilisateurs admin-only, webhook paiement, 429, Swagger prod, CORS / KELPAY, callback Kelpay, tableau HTTP.
+- **[FRONTEND_AUTH_FLUX.md](./FRONTEND_AUTH_FLUX.md)** — inscription (code e-mail), login, profil, mot de passe oublié / reset.
 
 ## Paiements KELPAY
 

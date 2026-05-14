@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { authService } from '@/services/api'
 import { notify } from '@/lib/notify'
+import { getAuthRateLimitMessage, isAuthRateLimitError } from '@/lib/auth-flow-errors'
 import { Lock, ArrowLeft, CheckCircle } from 'lucide-react'
 
 export default function ResetPassword() {
@@ -53,10 +54,19 @@ export default function ResetPassword() {
       setTimeout(() => {
         router.push('/login')
       }, 3000)
-    } catch (error: any) {
+    } catch (error: unknown) {
+      if (isAuthRateLimitError(error)) {
+        notify.error('Trop de tentatives', getAuthRateLimitMessage(error))
+        return
+      }
+      const msg =
+        error &&
+        typeof error === 'object' &&
+        'response' in error &&
+        (error as { response?: { data?: { message?: string } } }).response?.data?.message
       notify.error(
-        error.response?.data?.message || 
-        'Erreur lors de la réinitialisation. Le lien peut être expiré ou invalide.'
+        (typeof msg === 'string' && msg.trim()) ||
+          'Erreur lors de la réinitialisation. Le lien peut être expiré ou invalide.',
       )
     } finally {
       setLoading(false)

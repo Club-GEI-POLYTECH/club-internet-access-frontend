@@ -7,17 +7,29 @@ import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
 import { notify } from '@/lib/notify'
 import { getSafeInternalRedirect } from '@/lib/safe-redirect'
+import { getLoginErrorToast, isAuthRateLimitError } from '@/lib/auth-flow-errors'
 import { Wifi, Sparkles, ArrowRight } from 'lucide-react'
+
+const RATE_LIMIT_COOLDOWN_SEC = 60
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [cooldownSec, setCooldownSec] = useState(0)
   const { login, user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirectTo')
   const safeRedirectTarget = getSafeInternalRedirect(redirectTo)
+
+  useEffect(() => {
+    if (cooldownSec <= 0) return
+    const id = window.setInterval(() => {
+      setCooldownSec((s) => (s <= 1 ? 0 : s - 1))
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [cooldownSec])
 
   useEffect(() => {
     if (
@@ -54,11 +66,11 @@ export default function Login() {
       }
     } catch (error: unknown) {
       logger.error('Login: échec connexion', error)
-      const msg =
-        error && typeof error === 'object' && 'response' in error
-          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
-          : undefined
-      notify.error('Connexion refusée', msg || 'Vérifiez votre e-mail et votre mot de passe.')
+      const { title, body } = getLoginErrorToast(error)
+      notify.error(title, body)
+      if (isAuthRateLimitError(error)) {
+        setCooldownSec(RATE_LIMIT_COOLDOWN_SEC)
+      }
     } finally {
       setLoading(false)
     }
@@ -153,14 +165,16 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  disabled={loading}
-                  className="btn btn-primary group mt-2 w-full py-3.5 text-base"
+                  disabled={loading || cooldownSec > 0}
+                  className="btn btn-primary group mt-2 w-full py-3.5 text-base disabled:cursor-not-allowed disabled:opacity-70"
                 >
                   {loading ? (
                     <span className="inline-flex items-center gap-2">
                       <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
                       Connexion…
                     </span>
+                  ) : cooldownSec > 0 ? (
+                    `Patientez ${cooldownSec}s…`
                   ) : (
                     <>
                       Se connecter

@@ -10,6 +10,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
 import { isSixDigitVerificationCode, isValidRegistrationEmail } from '@/lib/register-email'
 import { getSafeInternalRedirect, getSafeRedirectPath } from '@/lib/safe-redirect'
+import { getAuthRateLimitMessage, isAuthRateLimitError } from '@/lib/auth-flow-errors'
 
 function RegisterPageContent() {
   const router = useRouter()
@@ -97,6 +98,10 @@ function RegisterPageContent() {
       logger.info('Register: code e-mail demandé ou renvoyé', { email: trimmed })
     } catch (error: unknown) {
       logger.error('Register: échec envoi code', error)
+      if (isAuthRateLimitError(error)) {
+        notify.error('Trop de tentatives', getAuthRateLimitMessage(error))
+        return
+      }
       const message =
         error instanceof Error
           ? error.message
@@ -139,6 +144,10 @@ function RegisterPageContent() {
       router.push(getSafeRedirectPath(redirectTo, '/dashboard'))
     } catch (error: unknown) {
       logger.error('Register: échec inscription', error)
+      if (isAuthRateLimitError(error)) {
+        notify.error('Trop de tentatives', getAuthRateLimitMessage(error))
+        return
+      }
       const message =
         error && typeof error === 'object' && 'response' in error
           ? (error as { response?: { data?: { message?: string } } }).response?.data?.message

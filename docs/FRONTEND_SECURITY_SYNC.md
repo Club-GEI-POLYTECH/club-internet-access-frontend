@@ -1,51 +1,92 @@
-# Synchronisation sécurité — frontend ↔ API Club Internet Access
+# Frontend — alignement sur les changements de sécurité (API)
 
-Ce document aligne le frontend sur le contrat décrit dans la **collection Postman** du backend et sur les bonnes pratiques de sécurité.
+Ce document liste ce que l’application **frontend** doit respecter après durcissement du backend (rôles, webhooks, rate limiting, Swagger, etc.).  
+Préfixe API : **`/api`**. Types de référence : **`types/api.ts`**, **`types/frontend-types.ts`** ; client principal : **`lib/api-client.ts`** ; client d’exemple : **`lib/frontend-api-client.ts`**.
 
-## 1. `GET/POST/PUT/DELETE /api/users` — **admin uniquement**
+---
 
-- Le backend réserve la gestion des utilisateurs au rôle **admin**.
-- Le frontend : entrée **Utilisateurs** uniquement pour les admins ([`components/Layout.tsx`](../components/Layout.tsx)), page [`app/admin/users/page.tsx`](../app/admin/users/page.tsx) redirige les non-admins vers `/dashboard`.
-- En cas de **403**, afficher un message clair (pas seulement « erreur réseau ») — géré via [`lib/api-client.ts`](../lib/api-client.ts) et les `notify` dans les écrans concernés.
-- Ne **jamais** supposer la présence d’un champ `password` dans les JSON utilisateur renvoyés en lecture : le type [`User`](../types/api.ts) n’expose pas le mot de passe ; tout champ parasite est retiré côté client ([`lib/sanitize-user.ts`](../lib/sanitize-user.ts)).
+## 1. Gestion des utilisateurs (`/api/users/*`)
 
-## 2. `POST /api/tickets/webhook/payment`
+**Changement** : toutes les routes **`GET/POST/PUT/DELETE /api/users`** sont réservées au rôle **`admin`** (JWT avec `role: "admin"`). Un étudiant ou un agent ne doit plus appeler ces endpoints.
 
-- En-tête **`X-Payment-Webhook-Secret`** aligné sur **`TICKETS_PAYMENT_WEBHOOK_SECRET`** côté serveur.
-- **À n’appeler que depuis le backend** (Kelpay, worker, etc.) — **pas** depuis le navigateur et **aucune** variable `NEXT_PUBLIC_*` pour ce secret dans le bundle.
-- Réponses possibles : **401** (secret absent ou invalide), **503** (service indisponible). Le client HTTP gère un message utilisateur pour **503** ; le webhook n’est pas une route du frontend.
+**Côté front (état du dépôt)**
 
-## 3. Throttling auth — **429 Too Many Requests**
+- Navigation **Utilisateurs** : uniquement pour les admins (`components/Layout.tsx`).
+- Page **`/admin/users`** : `PrivateRoute` avec `allowedRoles={[UserRole.ADMIN]}` + message dans `UserManagement` si accès direct.
+- Les réponses utilisateur en lecture sont nettoyées de tout champ **`password`** parasite via **`lib/sanitize-user.ts`** ; le type **`User`** dans `types/api.ts` ne prévoit pas de mot de passe en lecture.
 
-- Le backend peut renvoyer **429** sur `login`, `register/*`, `forgot-password`, `reset-password`.
-- Le frontend doit **ne pas** interpréter cela comme un simple « mauvais mot de passe » : message invitant à **patienter** et à réessayer plus tard (voir [`lib/api-client.ts`](../lib/api-client.ts) et intercepteur Axios dans [`services/api.ts`](../services/api.ts)).
+**Erreurs HTTP** : **`403 Forbidden`** — géré dans `lib/api-client.ts` (« Accès refusé… »).
 
-## 4. Swagger / doc interactive
+---
 
-- En **production**, la doc OpenAPI interactive est en général **désactivée** : ne pas compter sur `GET /api` ou équivalent pour de la documentation en prod.
+## 2. Webhook interne ticket / paiement (`POST /api/tickets/webhook/payment`)
 
-## 5. CORS et KELPAY
+**Changement** : l’endpoint exige l’en-tête **`X-Payment-Webhook-Secret`** (aligné sur **`TICKETS_PAYMENT_WEBHOOK_SECRET`** côté backend).
 
-- Les appels passent par **`NEXT_PUBLIC_API_URL`** (même origine avec rewrite `/api` ou URL backend explicite).
-- Le flux **KELPAY** côté navigateur reste : **`POST /api/payments/initiate`** → **`kelpay/verify`** → **`kelpay/confirm`** (et **`cancel`** si besoin) — **pas** d’appel direct navigateur vers `pay.keccel.com` pour le flux métier (la collection Postman peut inclure « Keccel direct » à des fins de test manuel uniquement).
+**Côté front**
 
-## 6. Achat ticket hors KELPAY
+- **SPA navigateur** : ne pas appeler ce POST ni exposer le secret dans le bundle (`NEXT_PUBLIC_*`).
+- **Serveur** (Route Handler Next, worker, etc.) : envoyer l’en-tête depuis une variable d’environnement **serveur uniquement**.
 
-- `POST /api/tickets/purchase` : `method` **`mobile_money`** ou **`card`** — **plus d’espèces** (`cash` retiré côté types et UI).
+**Erreurs HTTP** : **`503`** si le secret n’est pas configuré sur le backend ; **`401`** si l’en-tête est absent ou incorrect. Le chemin est documenté dans `lib/api-endpoints.ts` à titre de référence — **pas** d’implémentation côté bundle client.
 
-## 7. Tableau des codes HTTP utiles (client)
+---
 
-| Code | Comportement frontend (résumé) |
-|------|--------------------------------|
-| 401 | Déconnexion, redirection `/login` |
-| 403 | Message « permissions insuffisantes » |
-| 404 | Ressource introuvable |
-| 429 | Throttling — patienter, ne pas boucler agressivement |
-| 503 | Service indisponible — réessayer plus tard |
-| 5xx | Message générique + logs |
+## 3. Limitation de débit (throttling) sur l’auth
 
-## Fichiers à tenir à jour avec l’API
+**Changement** : limites par IP sur notamment :
 
-- [`types/api.ts`](../types/api.ts), [`types/frontend-types.ts`](../types/frontend-types.ts)
-- [`lib/api-endpoints.ts`](../lib/api-endpoints.ts), [`lib/api-client.ts`](../lib/api-client.ts)
-- [`services/api.ts`](../services/api.ts) (Axios / auth)
+- `POST /api/auth/register/request`, `register/verify`, `register/resend`
+- `POST /api/auth/login`
+- `POST /api/auth/forgot-password`, `reset-password`
+
+**Côté front**
+
+- **`429 Too Many Requests`** : messages dédiés dans **`lib/api-client.ts`** et l’intercepteur Axios **`services/api.ts`**.
+- **UI** : **`lib/auth-flow-errors.ts`** — détection commune ; **Login** : toast « Limite de requêtes » + cooldown bouton 60 s après 429 ; **Inscription** (`app/register/page.tsx`) : toast explicite ; **Mot de passe oublié** : en cas de 429, erreur visible (sans masquer derrière le message ambigu « si l’adresse existe ») ; **Réinitialisation** : idem.
+- Éviter les retries agressifs ; l’inscription a déjà un cooldown sur le renvoi de code.
+
+---
+
+## 4. Swagger / OpenAPI en production
+
+**Changement** : avec **`NODE_ENV=production`**, la doc Swagger interactive n’est en général **plus** servie sur `/api`.
+
+**Côté front** : ne pas dépendre de **`GET …/api`** pour la découverte des routes en prod — utiliser la doc du dépôt ou une export OpenAPI en dev.
+
+---
+
+## 5. CORS et en-têtes
+
+L’en-tête **`X-Payment-Webhook-Secret`** peut être autorisé par CORS pour des cas très spécifiques ; en pratique, préférer un appel **same-origin** via un BFF. Les appels classiques **`Authorization`** + **`Content-Type`** restent inchangés côté front.
+
+---
+
+## 6. Callback Kelpay (`POST /api/payments/callback`)
+
+Si **`KELPAY_CALLBACK_ALLOWED_IPS`** est défini sur le backend, seules ces IPs peuvent déclencher le traitement utile (les autres peuvent tout de même recevoir une réponse « OK » pour Keccel).
+
+**Côté front** : aucun changement pour le flux **initiate → verify → confirm** depuis le navigateur. Tests locaux avec tunnel : coordonner avec le backend (variable vide = pas de filtre).
+
+---
+
+## 7. Récap des erreurs à gérer dans l’UI
+
+| Code | Contexte typique | Action UI |
+|------|------------------|-----------|
+| **403** | Accès `/users` sans rôle admin | Redirection / message « réservé aux administrateurs » |
+| **401** | Webhook ticket sans bon secret | Corriger l’intégration **serveur** uniquement |
+| **503** | Webhook ou service indisponible | Message + réessayer plus tard |
+| **429** | Trop de requêtes auth | Message + cooldown — **pas** « mot de passe incorrect » |
+
+---
+
+## 8. Fichiers à tenir à jour avec l’API
+
+- **`types/api.ts`**, **`types/frontend-types.ts`**
+- **`lib/api-endpoints.ts`**, **`lib/api-client.ts`**
+- **`lib/auth-flow-errors.ts`** (messages 429 auth)
+- **`services/api.ts`** (Axios)
+- **`lib/frontend-api-client.ts`** (exemple / façade KELPAY, sans users ni webhook)
+
+Flux inscription / mot de passe oublié (fonctionnel) : **[FRONTEND_AUTH_FLUX.md](./FRONTEND_AUTH_FLUX.md)**.

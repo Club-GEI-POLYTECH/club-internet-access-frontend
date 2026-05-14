@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { authService } from '@/services/api'
 import { notify } from '@/lib/notify'
+import { getAuthRateLimitMessage, isAuthRateLimitError } from '@/lib/auth-flow-errors'
 import { Mail, ArrowLeft } from 'lucide-react'
 
 export default function ForgotPassword() {
@@ -19,8 +20,12 @@ export default function ForgotPassword() {
       await authService.forgotPassword(email)
       setSent(true)
       notify.success('Code envoyé', 'Consultez votre boîte e-mail (et les indésirables).')
-    } catch (error: any) {
-      // On affiche toujours un message de succès pour des raisons de sécurité
+    } catch (error: unknown) {
+      if (isAuthRateLimitError(error)) {
+        notify.error('Trop de tentatives', getAuthRateLimitMessage(error))
+        return
+      }
+      // Réponse ambiguë : limiter l’énumération des comptes
       setSent(true)
       notify.success('Si cette adresse existe', 'Un lien de réinitialisation vient d’y être envoyé.')
     } finally {

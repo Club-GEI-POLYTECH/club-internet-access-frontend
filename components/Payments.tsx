@@ -147,7 +147,7 @@ export default function Payments() {
       mobile_money: 'Mobile Money',
       card: 'Carte',
     }
-    if (method === 'cash') return 'Autre'
+    if (method === 'cash') return 'Espèces (historique)'
     return methods[method] ?? method
   }
 

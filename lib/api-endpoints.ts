@@ -90,6 +90,7 @@ export const API_ENDPOINTS = {
     mine: '/tickets/me',
     reserve: (id: string) => `/tickets/${id}/reserve`,
     release: (id: string) => `/tickets/${id}/release`,
+    /** Webhook interne — **serveur uniquement** (`X-Payment-Webhook-Secret`), pas d’appel depuis le SPA. */
     webhookPayment: '/tickets/webhook/payment',
   },
 

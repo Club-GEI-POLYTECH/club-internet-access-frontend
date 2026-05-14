@@ -4,6 +4,13 @@
  *
  * Flux backend : `POST /payments/initiate` → `POST /payments/:id/kelpay/verify`
  * → `POST /payments/:id/kelpay/confirm` (pas de polling automatique côté serveur).
+ *
+ * **Sécurité / contrat API** (voir `docs/FRONTEND_SECURITY_SYNC.md`) :
+ * - `GET/POST/PUT/DELETE /api/users/*` : **admin uniquement** ; pas de champ `password` dans les JSON utilisateur en lecture.
+ * - `POST /api/tickets/webhook/payment` : en-tête `X-Payment-Webhook-Secret`, **appel serveur uniquement** (pas dans le bundle navigateur).
+ * - Auth : gérer **429** sur login / register / forgot / reset (voir `lib/auth-flow-errors.ts`, `lib/api-client.ts`).
+ * - **Swagger** : non disponible sur `/api` en production — ne pas s’en servir pour la découverte des routes.
+ * - **Callback Kelpay** `POST /api/payments/callback` : filtre IP optionnel côté backend (`KELPAY_CALLBACK_ALLOWED_IPS`) ; le flux navigateur reste initiate → verify → confirm.
  */
 
 import type { Payment } from '@/types/api'

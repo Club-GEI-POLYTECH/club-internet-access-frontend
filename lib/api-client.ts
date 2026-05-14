@@ -382,6 +382,7 @@ export const apiClient = {
     },
   },
 
+  /** Gestion des comptes — **`GET/POST/PUT/DELETE /api/users/*`** réservés au rôle **admin** (403 sinon). */
   users: {
     list: async (): Promise<User[]> => {
       const raw = await apiRequest<User[] | unknown>('/users')

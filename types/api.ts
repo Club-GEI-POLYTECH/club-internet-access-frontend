@@ -17,6 +17,10 @@ export enum UserRole {
   STUDENT = 'student',
 }
 
+/**
+ * Profil utilisateur tel que renvoyé par l’API en lecture (`GET /auth/profile`, listes admin, etc.).
+ * Le backend **n’expose pas** le mot de passe (ni hash) dans ces réponses — ne pas l’attendre dans l’UI.
+ */
 export interface User {
   id: string
   email: string
@@ -510,7 +514,7 @@ export const paymentMethodLabels: Record<PaymentMethod, PaymentMethodLabel> = {
 export function formatPaymentMethodLabel(method: string): string {
   if (method === PaymentMethod.MOBILE_MONEY) return paymentMethodLabels[PaymentMethod.MOBILE_MONEY]
   if (method === PaymentMethod.CARD) return paymentMethodLabels[PaymentMethod.CARD]
-  if (method === 'cash') return 'Autre'
+  if (method === 'cash') return 'Espèces (historique)'
   return method
 }
 

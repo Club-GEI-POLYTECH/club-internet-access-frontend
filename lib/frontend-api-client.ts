@@ -2,10 +2,15 @@
  * Client d’exemple — paiements KELPAY & tickets « mine ».
  * La source de vérité des appels est `lib/api-client.ts` (`apiClient`).
  *
+ * **Hors périmètre ici (sécurité)** :
+ * - **`/api/users/*`** : réservé **admin** — utiliser `apiClient.users` uniquement derrière une UI / route réservée aux admins.
+ * - **`POST /api/tickets/webhook/payment`** : réservé à un **serveur** (secret `TICKETS_PAYMENT_WEBHOOK_SECRET`), jamais depuis le navigateur.
+ *
  * Vous pouvez copier ce fichier dans un autre repo Next.js pour documenter
  * les deux points d’entrée sans dupliquer la logique `fetch` / tokens.
  *
  * @see docs/FRONTEND_PAIEMENTS_KELPAY.md — initiate, verifyKelpay, confirmKelpay, cancelKelpay.
+ * @see docs/FRONTEND_SECURITY_SYNC.md — rôles, 429, webhook, Swagger prod.
  */
 
 import type {
