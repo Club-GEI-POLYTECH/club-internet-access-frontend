@@ -9,6 +9,7 @@ import { notify } from '@/lib/notify'
 import type { Payment, CreatePaymentRequest } from '@/types/api'
 import { PaymentMethod as PaymentMethodEnum } from '@/types/api'
 import { paymentMethodLabels } from '@/types/api'
+import UserProfilePanel from '@/components/UserProfilePanel'
 
 export default function DashboardAgent() {
   const router = useRouter()
@@ -64,6 +65,8 @@ export default function DashboardAgent() {
 
   return (
     <div className="space-y-8">
+      <UserProfilePanel />
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Espace vendeur</p>

@@ -8,6 +8,7 @@ import type { Payment, Ticket as TicketModel } from '@/types/api'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { apiClient } from '@/lib/api-client'
+import UserProfilePanel from '@/components/UserProfilePanel'
 
 export default function DashboardStudent() {
   const router = useRouter()
@@ -38,6 +39,8 @@ export default function DashboardStudent() {
 
   return (
     <div className="space-y-8">
+      <UserProfilePanel />
+
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Mon espace</p>

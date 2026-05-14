@@ -1,12 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { dashboardService } from '@/services/api'
 import { apiClient } from '@/lib/api-client'
-import { Ticket as TicketIcon, DollarSign, ShoppingCart, Package } from 'lucide-react'
+import { Ticket as TicketIcon, DollarSign, ShoppingCart, Package, Users } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { notify } from '@/lib/notify'
 import type { DashboardStats, ChartData } from '@/types/api'
+import UserProfilePanel from '@/components/UserProfilePanel'
 
 type TicketAdminStats = {
   total: number
@@ -65,6 +67,8 @@ export default function DashboardAdmin() {
 
   return (
     <div className="space-y-8">
+      <UserProfilePanel />
+
       <div className="flex flex-col gap-4 animate-fade-in-down sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Vue d&apos;ensemble</p>
@@ -178,6 +182,23 @@ export default function DashboardAdmin() {
             </div>
           </div>
         </div>
+      </div>
+
+      <div className="card flex flex-col gap-4 opacity-0 animate-fade-in-up sm:flex-row sm:items-center sm:justify-between" style={{ animationDelay: '0.28s', animationFillMode: 'forwards' }}>
+        <div className="flex items-start gap-3">
+          <div className="rounded-xl bg-primary-100 p-3 text-primary-700">
+            <Users className="h-6 w-6" />
+          </div>
+          <div>
+            <h2 className="font-display text-lg font-bold text-ink-900">Utilisateurs de la plateforme</h2>
+            <p className="mt-1 max-w-xl text-sm text-ink-600">
+              Liste, création, modification et suppression des comptes (agents, étudiants, etc.) via l’API.
+            </p>
+          </div>
+        </div>
+        <Link href="/admin/users" className="btn btn-primary shrink-0 self-start sm:self-center">
+          Gérer les utilisateurs
+        </Link>
       </div>
 
       {charts && (

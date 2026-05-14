@@ -12,6 +12,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   /** Après `POST /auth/register/verify` : applique le JWT sans refaire un login. */
   applyAuthResponse: (response: LoginResponse) => void
+  /** Recharge le profil depuis `GET /auth/profile` (ex. après `PUT /users/:id`). */
+  refreshUser: () => Promise<void>
   logout: () => void
   loading: boolean
 }
@@ -52,6 +54,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const refreshUser = async () => {
+    const t = getToken()
+    if (!t) return
+    try {
+      authService.setToken(t)
+      const profile = await authService.getProfile()
+      setUser(profile)
+    } catch {
+      /* ne pas invalider la session si le profil échoue ponctuellement */
+    }
+  }
+
   const applyAuthResponse = (response: LoginResponse) => {
     setToken(response.access_token)
     setUser(response.user)
@@ -84,7 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, token, login, applyAuthResponse, logout, loading }}>
+    <AuthContext.Provider value={{ user, token, login, applyAuthResponse, refreshUser, logout, loading }}>
       {children}
     </AuthContext.Provider>
   )

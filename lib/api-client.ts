@@ -23,6 +23,8 @@ import type {
   TicketType,
   TicketPurchaseRequest,
   TicketPurchaseResponse,
+  CreateUserRequest,
+  UpdateUserRequest,
 } from '@/types/api'
 import type {
   InitiateKelpayPaymentRequest,
@@ -374,6 +376,45 @@ export const apiClient = {
 
     getCharts: async (days: number = 7): Promise<ChartData> => {
       return apiRequest<ChartData>(`/dashboard/charts?days=${days}`)
+    },
+  },
+
+  users: {
+    list: async (): Promise<User[]> => {
+      const raw = await apiRequest<User[] | unknown>('/users')
+      return Array.isArray(raw) ? raw : []
+    },
+
+    getById: async (id: string): Promise<User> => {
+      return apiRequest<User>(`/users/${id}`)
+    },
+
+    create: async (data: CreateUserRequest): Promise<User> => {
+      const body: CreateUserRequest = {
+        email: data.email.trim().toLowerCase(),
+        password: data.password,
+        firstName: data.firstName.trim(),
+        lastName: data.lastName.trim(),
+        role: data.role,
+        ...(data.phone?.trim() ? { phone: data.phone.trim() } : {}),
+      }
+      return apiRequest<User>('/users', {
+        method: 'POST',
+        body: JSON.stringify(body),
+      })
+    },
+
+    update: async (id: string, data: UpdateUserRequest): Promise<User> => {
+      return apiRequest<User>(`/users/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(data),
+      })
+    },
+
+    delete: async (id: string): Promise<void> => {
+      await apiRequest<Record<string, never>>(`/users/${id}`, {
+        method: 'DELETE',
+      })
     },
   },
 

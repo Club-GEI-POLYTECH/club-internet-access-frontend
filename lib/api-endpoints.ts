@@ -48,6 +48,12 @@ export const API_ENDPOINTS = {
     resetPassword: '/auth/reset-password',
   },
 
+  // --- Users (admin — GET/POST /users, PUT/DELETE /users/:id) ---
+  users: {
+    list: '/users',
+    byId: (id: string) => `/users/${id}`,
+  },
+
   // --- Payments ---
   payments: {
     list: '/payments',

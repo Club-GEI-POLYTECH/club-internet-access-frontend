@@ -75,6 +75,27 @@ export interface ResetPasswordRequest {
   newPassword: string
 }
 
+/** POST `/users` — création par admin (collection Postman) */
+export interface CreateUserRequest {
+  email: string
+  password: string
+  firstName: string
+  lastName: string
+  role: UserRole
+  phone?: string
+}
+
+/** PUT `/users/:id` — champs partiels selon le backend */
+export interface UpdateUserRequest {
+  email?: string
+  firstName?: string
+  lastName?: string
+  phone?: string
+  role?: UserRole
+  isActive?: boolean
+  password?: string
+}
+
 // ============================================
 // WIFI ACCOUNTS
 // ============================================
