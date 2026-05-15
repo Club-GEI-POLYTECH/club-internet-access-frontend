@@ -150,6 +150,9 @@ function BuyTicketContent() {
   /** Plusieurs entrées identiques côté affichage → une seule carte + premier ticket réservé pour l’API. */
   const showCompactStock = homogeneousOfferKey != null && tickets.length > 1
 
+  /** Un seul ticket ou stock homogène : pas de colonne « liste » + colonne « paiement ». */
+  const singleCheckoutCard = tickets.length === 1 || showCompactStock
+
   const scrollToCheckout = useCallback(() => {
     checkoutPanelRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
@@ -307,14 +310,14 @@ function BuyTicketContent() {
     }
   }, [selectedTicket?.id, kelpaySession, clearKelpaySessionAfterFailure])
 
-  /** Plusieurs tickets identiques à l’écran : un seul bloc + premier ID pour l’achat. */
+  /** Ticket unique ou stock homogène : sélection automatique du premier disponible pour l’API. */
   useEffect(() => {
-    if (!homogeneousOfferKey || tickets.length <= 1) return
+    if (!singleCheckoutCard || tickets.length === 0) return
     setSelectedTicket((prev) => {
       if (prev && tickets.some((t) => t.id === prev.id)) return prev
       return tickets[0]
     })
-  }, [tickets, homogeneousOfferKey])
+  }, [tickets, singleCheckoutCard])
 
   const finalizeKelpaySuccess = async (paymentId: string, ticketId: string, finalPayment: Payment) => {
     setPaymentHint('Récupération de votre ticket…')
@@ -910,7 +913,10 @@ function BuyTicketContent() {
             </button>
           </div>
         ) : (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div
+            className={singleCheckoutCard ? 'mx-auto max-w-lg' : 'grid gap-6 md:grid-cols-2'}
+          >
+            {!singleCheckoutCard ? (
             <div
               className="order-2 rounded-3xl border border-white/20 bg-white/95 p-6 shadow-2xl shadow-ink-950/15 backdrop-blur-xl animate-fade-in-up opacity-0 [animation-fill-mode:forwards] md:order-1"
               style={{ animationDelay: '0.1s' }}
@@ -1002,19 +1008,30 @@ function BuyTicketContent() {
                 </div>
               )}
             </div>
+            ) : null}
 
             <div
               ref={checkoutPanelRef}
               id="buy-ticket-checkout"
-              className="order-1 rounded-3xl border border-white/20 bg-white/95 p-6 shadow-2xl shadow-ink-950/15 backdrop-blur-xl animate-fade-in-up opacity-0 [animation-fill-mode:forwards] md:order-2"
-              style={{ animationDelay: '0.2s' }}
+              className={`rounded-3xl border border-white/20 bg-white/95 p-6 shadow-2xl shadow-ink-950/15 backdrop-blur-xl animate-fade-in-up opacity-0 [animation-fill-mode:forwards] ${
+                singleCheckoutCard ? '' : 'order-1 md:order-2'
+              }`}
+              style={{ animationDelay: singleCheckoutCard ? '0.1s' : '0.2s' }}
             >
-              <h2 className="font-display text-lg font-bold text-ink-900">Paiement</h2>
+              <h2 className="font-display text-lg font-bold text-ink-900">
+                {singleCheckoutCard ? 'Acheter ce forfait' : 'Paiement'}
+              </h2>
 
               {selectedTicket ? (
                 <div className="mt-4 space-y-6">
                   <div className="rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/90 to-white p-4">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-primary-800">Récapitulatif</h3>
+                    {showCompactStock && tickets.length > 1 ? (
+                      <p className="mt-2 text-xs leading-relaxed text-ink-600">
+                        <strong className="text-ink-800">{tickets.length} tickets</strong> identiques en stock — le
+                        serveur vous en attribue un automatiquement au paiement.
+                      </p>
+                    ) : null}
                     <div className="mt-3 space-y-2 text-sm">
                       <div className="flex justify-between text-ink-600">
                         <span>Profil</span>
@@ -1202,8 +1219,8 @@ function BuyTicketContent() {
                 </div>
               ) : (
                 <div className="mt-10 py-8 text-center text-ink-500">
-                  <ShoppingCart className="mx-auto mb-3 h-12 w-12 opacity-40" />
-                  <p className="text-sm font-medium">Sélectionnez un ticket dans la liste pour continuer.</p>
+                  <div className="mx-auto mb-3 h-12 w-12 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
+                  <p className="text-sm font-medium">Préparation du ticket…</p>
                 </div>
               )}
             </div>

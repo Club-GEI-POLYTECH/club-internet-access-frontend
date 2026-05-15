@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { authService } from '@/services/api'
 import { getToken, setToken as setAuthToken, removeToken } from '@/lib/auth'
+import { isOnAuthPublicPage } from '@/lib/api-session-401'
 import { logger } from '@/lib/logger'
 import type { User, LoginResponse } from '@/types/api'
 
@@ -30,9 +31,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const storedToken = getToken()
     setToken(storedToken)
     if (storedToken) {
-      logger.info('AuthContext: token trouvé, chargement du profil')
       authService.setToken(storedToken)
-      fetchProfile()
+      if (isOnAuthPublicPage()) {
+        logger.log('AuthContext: token présent sur page auth publique, pas de fetchProfile')
+        setLoading(false)
+      } else {
+        logger.info('AuthContext: token trouvé, chargement du profil')
+        fetchProfile()
+      }
     } else {
       logger.log('AuthContext: aucun token, utilisateur non connecté')
       setLoading(false)

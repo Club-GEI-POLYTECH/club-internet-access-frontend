@@ -17,6 +17,7 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [cooldownSec, setCooldownSec] = useState(0)
+  const [formError, setFormError] = useState<string | null>(null)
   const { login, user } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -50,6 +51,7 @@ export default function Login() {
     setLoading(true)
 
     try {
+      setFormError(null)
       await login(email, password)
       notify.success('Bienvenue !', 'Vous êtes connecté·e.')
       logger.info('Login: connexion réussie, redirection')
@@ -67,7 +69,8 @@ export default function Login() {
     } catch (error: unknown) {
       logger.error('Login: échec connexion', error)
       const { title, body } = getLoginErrorToast(error)
-      notify.error(title, body)
+      setFormError(body)
+      notify.error(title, body, { duration: 12_000 })
       if (isAuthRateLimitError(error)) {
         setCooldownSec(RATE_LIMIT_COOLDOWN_SEC)
       }
@@ -137,7 +140,10 @@ export default function Login() {
                     type="email"
                     required
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value)
+                      setFormError(null)
+                    }}
                     className="input"
                     placeholder="vous@unikin.cd"
                     autoComplete="email"
@@ -156,12 +162,24 @@ export default function Login() {
                     type="password"
                     required
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value)
+                      setFormError(null)
+                    }}
                     className="input"
                     placeholder="••••••••"
                     autoComplete="current-password"
                   />
                 </div>
+
+                {formError ? (
+                  <div
+                    role="alert"
+                    className="rounded-xl border border-red-200/90 bg-red-50 px-3 py-2.5 text-center text-sm font-medium text-red-900"
+                  >
+                    {formError}
+                  </div>
+                ) : null}
 
                 <button
                   type="submit"

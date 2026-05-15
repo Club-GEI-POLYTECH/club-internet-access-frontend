@@ -45,12 +45,15 @@ export function getLoginErrorToast(error: unknown): { title: string; body: strin
     if (fromApi && String(fromApi).trim()) {
       return { title: 'Connexion refusée', body: String(fromApi).trim() }
     }
+    if (error.response?.status === 401) {
+      return { title: 'Connexion refusée', body: 'E-mail ou mot de passe incorrect.' }
+    }
   }
   if (error instanceof Error && error.message.trim()) {
     return { title: 'Connexion refusée', body: error.message.trim() }
   }
   return {
     title: 'Connexion refusée',
-    body: 'Vérifiez votre e-mail et votre mot de passe.',
+    body: 'E-mail ou mot de passe incorrect.',
   }
 }

@@ -1,6 +1,9 @@
 // Service API utilisant axios (compatible avec le code existant)
+import '@/types/axios-augment'
 import axios from 'axios'
+import type { InternalAxiosRequestConfig } from 'axios'
 import { getToken, removeToken } from '@/lib/auth'
+import { isAuthApiPathExpecting401, isOnAuthPublicPage } from '@/lib/api-session-401'
 import { getApiUrl } from '@/lib/api-endpoints'
 import { formatApiConnectionError } from '@/lib/api-errors'
 import { logger } from '@/lib/logger'
@@ -21,11 +24,39 @@ const api = axios.create({
   },
 })
 
+/** Repli si `config.url` est vide ou atypique : détecte login / verify / reset sur l’URL finale. */
+function isAuthRouteWhere401IsNotSessionExpiry(config: InternalAxiosRequestConfig | undefined): boolean {
+  if (!config) return false
+  const rawUrl = config.url
+  if (!rawUrl) return false
+  let path = ''
+  try {
+    path = /^https?:\/\//i.test(rawUrl)
+      ? new URL(rawUrl).pathname
+      : (() => {
+          const base = (config.baseURL || '').replace(/\/+$/, '')
+          const rel = rawUrl.replace(/^\/+/, '')
+          const combined = base ? `${base}/${rel}` : `/${rel}`
+          return new URL(combined, 'https://placeholder.local').pathname
+        })()
+  } catch {
+    path = `${config.baseURL || ''}${rawUrl}`.toLowerCase()
+  }
+  return isAuthApiPathExpecting401(path)
+}
+
 // Intercepteur pour ajouter le token
 api.interceptors.request.use((config) => {
   const token = getToken()
-  logger.debug('API (axios): requête', { method: config.method, url: config.url, hasToken: !!token })
-  if (token) {
+  const skipAuthHeader =
+    config.skipSessionInvalidationOn401 === true || isAuthRouteWhere401IsNotSessionExpiry(config)
+  logger.debug('API (axios): requête', {
+    method: config.method,
+    url: config.url,
+    hasToken: !!token,
+    skipAuthHeader,
+  })
+  if (token && !skipAuthHeader) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
@@ -44,10 +75,24 @@ api.interceptors.response.use(
       message: error.message,
     })
     if (error.response?.status === 401) {
-      logger.warn('API (axios): 401, déconnexion et redirection /login')
-      removeToken()
-      if (typeof window !== 'undefined') {
-        window.location.href = '/login'
+      const cfg = error.config
+      const skipRedirect =
+        cfg?.skipSessionInvalidationOn401 === true || isAuthRouteWhere401IsNotSessionExpiry(cfg)
+      if (skipRedirect) {
+        logger.debug('API (axios): 401 attendu (auth), pas de redirection', {
+          url: cfg?.url,
+          baseURL: cfg?.baseURL,
+          flag: cfg?.skipSessionInvalidationOn401,
+        })
+      } else {
+        logger.warn('API (axios): 401, session invalide — déconnexion', {
+          url: cfg?.url,
+          onPublicAuthPage: isOnAuthPublicPage(),
+        })
+        removeToken()
+        if (typeof window !== 'undefined' && !isOnAuthPublicPage()) {
+          window.location.href = '/login'
+        }
       }
     }
     if (error.response?.status === 429) {
@@ -83,7 +128,9 @@ export const authService = {
   },
 
   login: async (email: string, password: string) => {
-    const response = await api.post('/auth/login', { email, password })
+    const response = await api.post('/auth/login', { email, password }, {
+      skipSessionInvalidationOn401: true,
+    })
     return response.data
   },
 
@@ -100,10 +147,14 @@ export const authService = {
   },
 
   registerVerify: async (data: RegisterVerifyRequest): Promise<LoginResponse> => {
-    const response = await api.post('/auth/register/verify', {
-      email: data.email.trim().toLowerCase(),
-      code: data.code.trim(),
-    })
+    const response = await api.post(
+      '/auth/register/verify',
+      {
+        email: data.email.trim().toLowerCase(),
+        code: data.code.trim(),
+      },
+      { skipSessionInvalidationOn401: true },
+    )
     return response.data
   },
 
@@ -123,7 +174,11 @@ export const authService = {
   },
 
   resetPassword: async (token: string, newPassword: string) => {
-    const response = await api.post('/auth/reset-password', { token, newPassword })
+    const response = await api.post(
+      '/auth/reset-password',
+      { token, newPassword },
+      { skipSessionInvalidationOn401: true },
+    )
     return response.data
   },
 }

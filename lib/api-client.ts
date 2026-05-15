@@ -47,6 +47,7 @@ import {
 import { normalizeAdminTicketsStats } from './normalize-admin-ticket-stats'
 import { getToken, setToken, removeToken } from './auth'
 import { sanitizePublicUser } from './sanitize-user'
+import { isAuthApiPathExpecting401, isOnAuthPublicPage } from './api-session-401'
 
 const API_URL = getApiUrl()
 
@@ -135,9 +136,20 @@ async function apiRequest<T>(
   logger.log('API: réponse', { endpoint, status: response.status, ok: response.ok })
 
   if (response.status === 401) {
-    logger.warn('API: 401 Unauthorized, déconnexion et redirection /login')
+    if (isAuthApiPathExpecting401(endpoint)) {
+      let message = 'E-mail ou mot de passe incorrect.'
+      try {
+        const error: ApiError = await response.json()
+        const m = Array.isArray(error.message) ? error.message.join(', ') : error.message
+        if (m && String(m).trim()) message = String(m).trim()
+      } catch {
+        /* ignore */
+      }
+      throw new Error(message)
+    }
+    logger.warn('API: 401 Unauthorized, déconnexion', { endpoint, onAuthPage: isOnAuthPublicPage() })
     removeToken()
-    if (typeof window !== 'undefined') {
+    if (typeof window !== 'undefined' && !isOnAuthPublicPage()) {
       window.location.href = '/login'
     }
     throw new Error('Session expirée. Veuillez vous reconnecter.')
