@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
 import { notify } from '@/lib/notify'
 import { getSafeInternalRedirect } from '@/lib/safe-redirect'
+import { AUTH_DASHBOARD_PATH, postAuthRedirectPath } from '@/lib/auth-routes'
 import { getLoginErrorToast, isAuthRateLimitError } from '@/lib/auth-flow-errors'
 import { Wifi, Sparkles, ArrowRight } from 'lucide-react'
 
@@ -33,17 +34,24 @@ export default function Login() {
   }, [cooldownSec])
 
   useEffect(() => {
+    if (!user) return
+
     if (
-      user &&
       typeof window !== 'undefined' &&
       window.location.protocol === 'http:' &&
       process.env.NODE_ENV === 'production'
     ) {
       logger.info('Login: utilisateur déjà connecté en HTTP, redirection HTTPS')
-      const httpsUrl = window.location.href.replace('http://', 'https://').replace('/login', '/')
+      const httpsUrl = window.location.href
+        .replace('http://', 'https://')
+        .replace('/login', AUTH_DASHBOARD_PATH)
       window.location.href = httpsUrl
+      return
     }
-  }, [user])
+
+    logger.info('Login: session active, redirection tableau de bord')
+    router.replace(postAuthRedirectPath())
+  }, [user, router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -62,9 +70,9 @@ export default function Login() {
         process.env.NODE_ENV === 'production'
       ) {
         const httpsUrl = window.location.href.replace('http://', 'https://')
-        window.location.href = httpsUrl.replace('/login', '/')
+        window.location.href = httpsUrl.replace('/login', AUTH_DASHBOARD_PATH)
       } else {
-        router.push(safeRedirectTarget ?? '/')
+        router.push(postAuthRedirectPath())
       }
     } catch (error: unknown) {
       logger.error('Login: échec connexion', error)

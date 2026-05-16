@@ -5,10 +5,11 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { apiClient } from '@/lib/api-client'
 import { ticketTypesPricePlaceholder } from '@/lib/ticket-type-price-placeholder'
-import { DollarSign, ShoppingCart, CreditCard, UserRound } from 'lucide-react'
+import { DollarSign, CreditCard, UserRound } from 'lucide-react'
 import { notify } from '@/lib/notify'
 import type { Payment, CreatePaymentRequest } from '@/types/api'
 import { PaymentMethod as PaymentMethodEnum, formatPaymentMethodLabel } from '@/types/api'
+import { paymentStatusLabel, toUserErrorMessage } from '@/lib/user-messages'
 
 export default function DashboardAgent() {
   const router = useRouter()
@@ -33,7 +34,7 @@ export default function DashboardAgent() {
 
   const loadRecentData = async () => {
     try {
-      const payments = await apiClient.payments.list().catch(() => [])
+      const payments = await apiClient.payments.list(8).catch(() => [])
       setRecentPayments(payments.slice(0, 8))
     } catch {
       /* chargement best-effort, liste vide si échec */
@@ -55,8 +56,7 @@ export default function DashboardAgent() {
       })
       loadRecentData()
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : 'Erreur lors de la création du paiement'
-      notify.error(message)
+      notify.error(toUserErrorMessage(error, 'Erreur lors de la création du paiement'))
     } finally {
       setLoading(false)
     }
@@ -69,7 +69,7 @@ export default function DashboardAgent() {
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Espace vendeur</p>
           <h1 className="font-display mt-1 text-3xl font-bold tracking-tight text-ink-900">Bienvenue</h1>
           <p className="mt-2 max-w-xl text-ink-600">
-            Les tickets proviennent de l&apos;import CSV (admin). Vous les vendez au tarif fixe par type (24h, 7j, 30j).
+            Suivez les encaissements et enregistrez les paiements reçus sur place. L&apos;achat en ligne est réservé aux étudiants.
           </p>
         </div>
         <div className="flex flex-wrap gap-3 justify-end">
@@ -79,16 +79,8 @@ export default function DashboardAgent() {
           </Link>
           <button
             type="button"
-            onClick={() => router.push('/buy-ticket')}
-            className="btn btn-primary flex items-center gap-2"
-          >
-            <ShoppingCart className="h-5 w-5" />
-            Vendre un ticket
-          </button>
-          <button
-            type="button"
             onClick={() => setShowPaymentModal(true)}
-            className="btn btn-secondary flex items-center gap-2"
+            className="btn btn-primary flex items-center gap-2"
           >
             <DollarSign className="h-5 w-5" />
             Enregistrer un paiement
@@ -96,25 +88,7 @@ export default function DashboardAgent() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <button
-          type="button"
-          className="card text-left cursor-pointer hover:shadow-lg transition-shadow w-full"
-          onClick={() => router.push('/buy-ticket')}
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-4 bg-primary-100 rounded-full">
-              <ShoppingCart className="h-8 w-8 text-primary-600" />
-            </div>
-            <div>
-              <h3 className="font-semibold text-ink-900">Catalogue & achat</h3>
-              <p className="text-sm text-ink-600">
-                Choisir un forfait 24h, 7 jours ou 30 jours et attribuer un ticket disponible au client.
-              </p>
-            </div>
-          </div>
-        </button>
-
+      <div className="grid grid-cols-1 gap-6 md:max-w-lg">
         <button
           type="button"
           className="card text-left cursor-pointer hover:shadow-lg transition-shadow w-full"
@@ -159,7 +133,7 @@ export default function DashboardAgent() {
                           : 'bg-rose-100 text-rose-900'
                     }`}
                   >
-                    {payment.status}
+                    {paymentStatusLabel(String(payment.status))}
                   </span>
                 </div>
               </div>
@@ -183,7 +157,7 @@ export default function DashboardAgent() {
                   onChange={(e) => setPaymentData({ ...paymentData, amount: Number(e.target.value) })}
                   className="input"
                   placeholder={
-                    amountPlaceholder || 'Montant selon le tarif du type de ticket (catalogue API)'
+                    amountPlaceholder || 'Montant selon le tarif du forfait'
                   }
                 />
               </div>

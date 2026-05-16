@@ -20,7 +20,7 @@ import type {
   KelpayVerifyPaymentResponse,
   ImportTicketsMultipartOptions,
 } from '@/types/frontend-types'
-import type { Ticket, Payment } from '@/types/api'
+import type { MyTicketListItem, Payment } from '@/types/api'
 import { apiClient } from './api-client'
 
 export const frontendApiClient = {
@@ -35,7 +35,7 @@ export const frontendApiClient = {
   },
   tickets: {
     /** Tickets de l’utilisateur connecté — `GET /tickets/me` */
-    mine: (): Promise<Ticket[]> => apiClient.tickets.mine(),
+    mine: (): Promise<MyTicketListItem[]> => apiClient.tickets.mine(),
     /**
      * Import CSV admin — `POST /admin/tickets/import` (repli 404 : `POST /tickets/admin/import`).
      * Multipart : `file`, `ticketTypeId` (UUID depuis `GET /tickets/types`) ou `catalogDuration` seul.

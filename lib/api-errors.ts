@@ -1,9 +1,10 @@
 /**
- * Messages et détection d’erreurs « backend injoignable » (réseau, DNS, timeout, etc.).
+ * Messages et détection d’erreurs réseau / service injoignable.
  */
 
-export const BACKEND_UNAVAILABLE_MESSAGE =
-  "Impossible de joindre le serveur d'API. Vérifiez qu'il est démarré (ex. http://localhost:4000) et que NEXT_PUBLIC_API_URL pointe vers la bonne URL dans .env.local."
+import { USER_CONNECTION_ERROR } from './user-messages'
+
+export const BACKEND_UNAVAILABLE_MESSAGE = USER_CONNECTION_ERROR
 
 export function isLikelyNetworkOrBackendDown(error: unknown): boolean {
   if (error == null) return false

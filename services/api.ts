@@ -185,8 +185,12 @@ export const authService = {
 
 export const paymentsService = {
   getAll: async () => {
-    const response = await api.get('/payments')
-    return response.data
+    const response = await api.get('/payments', { params: { page: 1, limit: 500 } })
+    const raw = response.data
+    if (raw && typeof raw === 'object' && Array.isArray((raw as { data?: unknown }).data)) {
+      return (raw as { data: unknown[] }).data
+    }
+    return Array.isArray(raw) ? raw : []
   },
 
   getById: async (id: string) => {

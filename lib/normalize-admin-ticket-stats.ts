@@ -28,6 +28,9 @@ function normalizeByTypeRow(item: unknown): AdminTicketTypeStatRow | null {
   if (!id) return null
   const reserved = pickInt(t, 'reserved', 'reservedCount', 'reserved_count')
   const total = pickInt(t, 'total', 'totalCount', 'total_count')
+  const timeLimit = t.timeLimit ?? t.time_limit
+  const dataLimit = t.dataLimit ?? t.data_limit
+  const profile = t.profile
   return {
     ticketTypeId: id,
     name: t.name != null ? String(t.name) : undefined,
@@ -35,6 +38,9 @@ function normalizeByTypeRow(item: unknown): AdminTicketTypeStatRow | null {
     sold: pickInt(t, 'sold', 'soldCount', 'sold_count'),
     ...(reserved > 0 ? { reserved } : {}),
     ...(total > 0 ? { total } : {}),
+    ...(timeLimit != null && String(timeLimit).trim() ? { timeLimit: String(timeLimit).trim() } : {}),
+    ...(dataLimit != null && String(dataLimit).trim() ? { dataLimit: String(dataLimit).trim() } : {}),
+    ...(profile != null && String(profile).trim() ? { profile: String(profile).trim() } : {}),
   }
 }
 
@@ -43,7 +49,15 @@ export function normalizeAdminTicketsStats(raw: unknown): AdminTicketsStats {
   const root = asRecord(raw)
   const data = asRecord(root.data ?? raw)
 
-  const byTypeRaw = data.byType ?? data.by_type ?? data.perType ?? data.per_type ?? data.typesStats ?? data.types_stats
+  const byTypeRaw =
+    data.byType ??
+    data.by_type ??
+    data.byTicketType ??
+    data.by_ticket_type ??
+    data.perType ??
+    data.per_type ??
+    data.typesStats ??
+    data.types_stats
   let byType: AdminTicketTypeStatRow[] | undefined
   if (Array.isArray(byTypeRaw)) {
     const rows = byTypeRaw.map(normalizeByTypeRow).filter((r): r is AdminTicketTypeStatRow => r != null)

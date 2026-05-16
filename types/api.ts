@@ -33,6 +33,25 @@ export interface User {
   updatedAt?: string
 }
 
+/** Paiement résumé inclus dans `GET /users` (liste paginée). */
+export interface EmbeddedPayment {
+  id: string
+  amount: number
+  status: string
+  method: string
+  transactionId?: string
+  merchantReference?: string
+  phoneNumber?: string
+  ticketId?: string
+  createdAt: string
+  updatedAt?: string
+}
+
+export interface UserWithPayments extends User {
+  payments?: EmbeddedPayment[]
+  paymentsTotal?: number
+}
+
 export interface LoginRequest {
   email: string
   password: string
@@ -164,15 +183,23 @@ export enum PaymentMethod {
   CARD = 'card',
 }
 
+export interface PaymentTicketRef {
+  id: string
+  username?: string
+  status?: string
+  profile?: string
+}
+
 export interface Payment {
   id: string
   amount: number
   /** Valeurs courantes : `mobile_money`, `card`. D’autres chaînes peuvent venir d’anciennes données API. */
   method: PaymentMethod | string
-  status: PaymentStatus
+  status: PaymentStatus | string
   /** Référence marchand KELPAY (si exposée par le backend) */
   merchantReference?: string
   ticketId?: string
+  ticket?: PaymentTicketRef
   transactionId?: string
   phoneNumber?: string
   wifiAccountId?: string
@@ -181,6 +208,7 @@ export interface Payment {
   createdBy?: User
   createdById?: string
   createdAt: string
+  updatedAt?: string
   completedAt?: string
 }
 
@@ -346,7 +374,7 @@ export interface TicketType {
   updatedAt?: string
 }
 
-/** Ligne optionnelle renvoyée par `GET /admin/tickets/stats` (clé `byType` ou équivalent). */
+/** Ligne de stats par forfait (`byType`, `byTicketType`, etc.). */
 export interface AdminTicketTypeStatRow {
   ticketTypeId: string
   name?: string
@@ -354,6 +382,18 @@ export interface AdminTicketTypeStatRow {
   sold: number
   reserved?: number
   total?: number
+  timeLimit?: string
+  dataLimit?: string
+  profile?: string
+}
+
+/** Bloc paiements de `GET /dashboard/stats` (admin). */
+export interface AdminDashboardPayments {
+  total: number
+  completed: number
+  pending: number
+  failed: number
+  revenue: number
 }
 
 /** Réponse normalisée de `GET /admin/tickets/stats`. */
@@ -364,6 +404,47 @@ export interface AdminTicketsStats {
   reserved: number
   revenue: number
   byType?: AdminTicketTypeStatRow[]
+}
+
+/** Résumé paiement dans `GET /tickets/me` (sans `providerResponse`). */
+export interface MyTicketPaymentSummary {
+  id: string
+  amount: number
+  status: string
+  method: string
+  createdAt: string
+}
+
+/** Résumé forfait dans `GET /tickets/me`. */
+export interface MyTicketTypeSummary {
+  id?: string
+  name?: string
+  profile?: string
+  price: number
+}
+
+/** Entrée `GET /tickets/me` paginé — mot de passe en clair si `sold`, sinon `***`. */
+export interface MyTicketListItem {
+  id: string
+  username: string
+  password: string
+  profile: string
+  status: TicketStatus | string
+  timeLimit?: string
+  dataLimit?: string
+  price: number
+  soldAt?: string
+  createdAt: string
+  updatedAt?: string
+  paymentId?: string
+  ticketType?: MyTicketTypeSummary
+  payment?: MyTicketPaymentSummary
+}
+
+export interface ListMyTicketsParams {
+  page?: number
+  limit?: number
+  status?: TicketStatus | string
 }
 
 export interface Ticket {

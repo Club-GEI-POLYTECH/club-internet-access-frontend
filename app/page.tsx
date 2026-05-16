@@ -18,8 +18,8 @@ export default function Home() {
       logger.info('Page /: utilisateur connecté → /dashboard')
       router.push('/dashboard')
     } else {
-      const redirectTo = encodeURIComponent('/buy-ticket')
-      logger.info('Page /: non connecté → /login (achat réservé aux comptes)')
+      const redirectTo = encodeURIComponent('/dashboard')
+      logger.info('Page /: non connecté → /login')
       router.push(`/login?redirectTo=${redirectTo}`)
     }
   }, [user, router])

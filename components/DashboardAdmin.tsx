@@ -7,65 +7,79 @@ import { apiClient } from '@/lib/api-client'
 import { Ticket as TicketIcon, DollarSign, ShoppingCart, Package, Users, UserRound, LayoutList } from 'lucide-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { notify } from '@/lib/notify'
-import type { DashboardStats, ChartData, TicketType, AdminTicketsStats } from '@/types/api'
+import { formatTicketTypeSubtitle } from '@/lib/user-messages'
+import { normalizeAdminDashboardStats } from '@/lib/normalize-dashboard-admin'
+import type { AdminDashboardPayments, ChartData, TicketType, AdminTicketsStats } from '@/types/api'
 
 type TypeBreakdownRow = {
   typeId: string
   label: string
-  profile: string
+  subtitle: string | null
   remaining: number
   sold: number | null
   totalType: number | null
 }
 
-/** Fusionne `GET /tickets/types` et stats admin (`byType`, `soldCount`, `totalCount`…). */
+/** Priorité aux stats par forfait (`byTicketType` / `byType`), puis au catalogue des types. */
 function buildTicketTypeBreakdown(types: TicketType[], stats: AdminTicketsStats | null): TypeBreakdownRow[] {
   const byStats = stats?.byType ?? []
-  const byId = new Map(byStats.map((r) => [r.ticketTypeId, r]))
+  const typesById = new Map(types.map((t) => [t.id, t]))
 
-  if (types.length === 0 && byStats.length > 0) {
-    return byStats.map((st) => {
-      const remaining = st.available
-      const sold = st.sold
-      const reserved = st.reserved ?? 0
-      const totalType = st.total !== undefined && st.total > 0 ? st.total : remaining + sold + reserved
-      return {
-        typeId: st.ticketTypeId,
-        label: st.name ?? '—',
-        profile: '',
-        remaining,
-        sold,
-        totalType: totalType > 0 ? totalType : null,
-      }
-    })
+  if (byStats.length > 0) {
+    return [...byStats]
+      .sort((a, b) => (a.name ?? '').localeCompare(b.name ?? '', 'fr'))
+      .map((st) => {
+        const t = typesById.get(st.ticketTypeId)
+        const remaining = st.available
+        const sold = st.sold
+        const reserved = st.reserved ?? 0
+        const totalType =
+          st.total != null && st.total > 0 ? st.total : remaining + sold + reserved
+        return {
+          typeId: st.ticketTypeId,
+          label: st.name ?? t?.name ?? 'Forfait',
+          subtitle: formatTicketTypeSubtitle(
+            t ?? { profile: st.profile, timeLimit: st.timeLimit, dataLimit: st.dataLimit },
+          ),
+          remaining,
+          sold,
+          totalType: totalType > 0 ? totalType : null,
+        }
+      })
   }
+
+  const byId = new Map(byStats.map((r) => [r.ticketTypeId, r]))
 
   return types.map((t) => {
     const st = byId.get(t.id)
     const remaining = st?.available ?? t.availableCount
-    let sold: number | null = st?.sold ?? t.soldCount ?? null
     const reserved = st?.reserved ?? t.reservedCount ?? 0
+    let sold: number | null = st?.sold ?? t.soldCount ?? null
+    let totalType: number | null = st?.total ?? t.totalCount ?? null
+    if (sold == null && totalType != null && totalType > 0) {
+      const derived = totalType - remaining - reserved
+      sold = derived >= 0 ? derived : null
+    }
     if (sold == null && typeof t.totalCount === 'number' && t.totalCount >= 0) {
       const derived = t.totalCount - remaining - reserved
       sold = derived >= 0 ? derived : null
     }
-    let totalType: number | null = st?.total ?? t.totalCount ?? null
     if (totalType == null && sold != null) {
       totalType = remaining + sold + reserved
     }
     return {
       typeId: t.id,
       label: t.name,
-      profile: t.profile,
+      subtitle: formatTicketTypeSubtitle(t),
       remaining,
       sold,
-      totalType,
+      totalType: totalType != null && totalType > 0 ? totalType : null,
     }
   })
 }
 
 export default function DashboardAdmin() {
-  const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [payments, setPayments] = useState<AdminDashboardPayments | null>(null)
   const [charts, setCharts] = useState<ChartData | null>(null)
   const [ticketStats, setTicketStats] = useState<AdminTicketsStats | null>(null)
   const [ticketTypes, setTicketTypes] = useState<TicketType[]>([])
@@ -79,15 +93,22 @@ export default function DashboardAdmin() {
 
   const loadData = async () => {
     try {
-      const [statsData, chartsData, ticketsData, typesData] = await Promise.all([
+      const [rawStats, chartsData, typesData, fallbackTicketStats] = await Promise.all([
         dashboardService.getStats(),
         dashboardService.getCharts(7),
-        apiClient.admin.tickets.getStats().catch(() => null),
         apiClient.tickets.getTypes().catch(() => [] as TicketType[]),
+        apiClient.admin.tickets.getStats().catch(() => null),
       ])
-      setStats(statsData)
+      const { payments: paymentsBlock, ticketStats: fromDashboard } = normalizeAdminDashboardStats(rawStats)
+      setPayments(paymentsBlock)
       setCharts(chartsData)
-      setTicketStats(ticketsData)
+      const ticketStatsMerged =
+        fromDashboard?.byType?.length
+          ? fromDashboard
+          : fromDashboard && fallbackTicketStats?.byType?.length
+            ? { ...fromDashboard, byType: fallbackTicketStats.byType }
+            : (fromDashboard ?? fallbackTicketStats)
+      setTicketStats(ticketStatsMerged)
       setTicketTypes(Array.isArray(typesData) ? typesData : [])
     } catch (error: unknown) {
       notify.error('Tableau de bord indisponible', 'Impossible de charger les statistiques. Réessayez dans un instant.')
@@ -127,6 +148,21 @@ export default function DashboardAdmin() {
     return breakdownRows.reduce((s, r) => s + (r.totalType ?? 0), 0)
   }, [breakdownRows])
 
+  const hasPerTypeSoldDetail = breakdownRows.length > 0 && breakdownRows.every((r) => r.sold != null)
+
+  const totalsAlignWithCatalog =
+    ticketStats != null &&
+    hasPerTypeSoldDetail &&
+    sumSoldByType != null &&
+    sumTotalByType != null &&
+    sumRemainingByType === ticketStats.available &&
+    sumSoldByType === ticketStats.sold &&
+    sumTotalByType === ticketStats.total
+
+  const globalPartsMatch =
+    ticketStats != null &&
+    ticketStats.available + ticketStats.sold + ticketStats.reserved === ticketStats.total
+
   if (loading) {
     return (
       <div className="flex h-64 items-center justify-center">
@@ -135,7 +171,7 @@ export default function DashboardAdmin() {
     )
   }
 
-  if (!stats) return null
+  if (!payments) return null
 
   return (
     <div className="space-y-8">
@@ -200,10 +236,10 @@ export default function DashboardAdmin() {
             <div>
               <p className="text-sm font-medium text-ink-500">Revenus (paiements)</p>
               <p className="font-display text-2xl font-bold text-ink-900">
-                {formatCurrency(stats.payments.revenue)}
+                {formatCurrency(payments.revenue)}
               </p>
               <p className="mt-1 text-xs text-emerald-700">
-                {`${stats.payments.completed} paiement${stats.payments.completed !== 1 ? 's' : ''} complété${stats.payments.completed !== 1 ? 's' : ''}`}
+                {`${payments.completed} paiement${payments.completed !== 1 ? 's' : ''} complété${payments.completed !== 1 ? 's' : ''}`}
               </p>
             </div>
             <div className="rounded-full bg-emerald-100 p-3 transition-transform duration-300 hover:scale-110">
@@ -219,7 +255,7 @@ export default function DashboardAdmin() {
               <p className="font-display text-2xl font-bold text-ink-900">
                 {ticketStats != null ? formatCurrency(ticketStats.revenue) : '—'}
               </p>
-              <p className="mt-1 text-xs text-ink-500">Si exposé par le backend</p>
+              <p className="mt-1 text-xs text-ink-500">Selon les données disponibles</p>
             </div>
             <div className="rounded-full bg-emerald-100 p-3 transition-transform duration-300 hover:scale-110">
               <ShoppingCart className="h-6 w-6 text-emerald-700" />
@@ -236,13 +272,9 @@ export default function DashboardAdmin() {
           <div>
             <h2 className="font-display text-lg font-bold text-ink-900">Stocks et ventes par type de ticket</h2>
             <p className="mt-1 max-w-3xl text-sm text-ink-600">
-              <strong>Restants</strong> par ligne : catalogue{' '}
-              <code className="rounded bg-ink-100 px-1 text-xs">GET /tickets/types</code> (champ{' '}
-              <code className="rounded bg-ink-100 px-1 text-xs">availableCount</code>). <strong>Vendus</strong> par type
-              si l’API renvoie <code className="rounded bg-ink-100 px-1 text-xs">byType</code> sur les stats admin, ou{' '}
-              <code className="rounded bg-ink-100 px-1 text-xs">soldCount</code> / <code className="rounded bg-ink-100 px-1 text-xs">totalCount</code> sur
-              chaque type — sinon affichage <span className="font-medium">—</span>. Les totaux globaux viennent toujours de{' '}
-              <code className="rounded bg-ink-100 px-1 text-xs">GET /admin/tickets/stats</code> lorsqu’il est disponible.
+              <strong>Restants</strong> : forfaits encore disponibles à la vente. <strong>Vendus</strong> : forfaits déjà
+              achetés. <strong>Total</strong> : ensemble des forfaits de ce type (restants + vendus + réservés le cas
+              échéant).
             </p>
           </div>
         </div>
@@ -276,7 +308,7 @@ export default function DashboardAdmin() {
                     <tr key={row.typeId} className="hover:bg-ink-50/60">
                       <td className="px-4 py-3">
                         <span className="font-medium text-ink-900">{row.label}</span>
-                        {row.profile ? <span className="mt-0.5 block text-xs text-ink-500">{row.profile}</span> : null}
+                        {row.subtitle ? <span className="mt-0.5 block text-xs text-ink-500">{row.subtitle}</span> : null}
                       </td>
                       <td className="px-4 py-3 text-right tabular-nums text-ink-900">{row.remaining}</td>
                       <td className="px-4 py-3 text-right tabular-nums text-ink-900">{row.sold != null ? row.sold : '—'}</td>
@@ -285,30 +317,66 @@ export default function DashboardAdmin() {
                   ))}
                 </tbody>
                 <tfoot className="border-t-2 border-ink-200 bg-primary-50/50">
-                  <tr className="text-sm font-semibold text-ink-900">
-                    <td className="px-4 py-3">Totaux (somme des lignes)</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{sumRemainingByType}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{sumSoldByType != null ? sumSoldByType : '—'}</td>
-                    <td className="px-4 py-3 text-right tabular-nums">{sumTotalByType != null ? sumTotalByType : '—'}</td>
-                  </tr>
-                  {ticketStats != null ? (
-                    <tr className="border-t border-ink-200 text-xs font-normal text-ink-600">
-                      <td className="px-4 py-2.5" colSpan={2}>
-                        Totaux globaux (API admin)
+                  {!hasPerTypeSoldDetail ? (
+                    <tr className="text-xs text-ink-600">
+                      <td className="px-4 py-2.5" colSpan={4}>
+                        Détail par forfait indisponible ligne par ligne. Seuls les totaux catalogue sont affichés
+                        ci-dessous.
                       </td>
-                      <td className="px-4 py-2.5 text-right tabular-nums" colSpan={2}>
-                        Restants : {ticketStats.available} · Vendus : {ticketStats.sold} · Total tickets : {ticketStats.total}
-                        {ticketStats.reserved > 0 ? ` · Réservés : ${ticketStats.reserved}` : ''}
+                    </tr>
+                  ) : null}
+                  {ticketStats != null ? (
+                    totalsAlignWithCatalog || !hasPerTypeSoldDetail ? (
+                      <tr className="text-sm font-semibold text-ink-900">
+                        <td className="px-4 py-3">Totaux</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{ticketStats.available}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{ticketStats.sold}</td>
+                        <td className="px-4 py-3 text-right tabular-nums">{ticketStats.total}</td>
+                      </tr>
+                    ) : (
+                      <>
+                        <tr className="text-sm font-semibold text-ink-900">
+                          <td className="px-4 py-3">Totaux (somme des lignes)</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{sumRemainingByType}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{sumSoldByType}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{sumTotalByType}</td>
+                        </tr>
+                        <tr className="border-t border-ink-200 text-sm font-semibold text-ink-900">
+                          <td className="px-4 py-3">Totaux catalogue</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{ticketStats.available}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{ticketStats.sold}</td>
+                          <td className="px-4 py-3 text-right tabular-nums">{ticketStats.total}</td>
+                        </tr>
+                      </>
+                    )
+                  ) : hasPerTypeSoldDetail ? (
+                    <tr className="text-sm font-semibold text-ink-900">
+                      <td className="px-4 py-3">Totaux</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{sumRemainingByType}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{sumSoldByType}</td>
+                      <td className="px-4 py-3 text-right tabular-nums">{sumTotalByType}</td>
+                    </tr>
+                  ) : null}
+                  {ticketStats != null && ticketStats.reserved > 0 ? (
+                    <tr className="text-xs text-ink-600">
+                      <td className="px-4 py-2.5" colSpan={4}>
+                        {ticketStats.reserved === 1
+                          ? '1 forfait est réservé (paiement en cours) : il est inclus dans le total mais pas dans les restants.'
+                          : `${ticketStats.reserved} forfaits sont réservés (paiements en cours) : ils sont inclus dans le total mais pas dans les restants.`}
+                        {globalPartsMatch
+                          ? ` Total = restants (${ticketStats.available}) + vendus (${ticketStats.sold}) + réservés (${ticketStats.reserved}).`
+                          : null}
                       </td>
                     </tr>
                   ) : null}
                 </tfoot>
               </table>
             </div>
-            {ticketStats != null && sumRemainingByType !== ticketStats.available ? (
+            {ticketStats != null && hasPerTypeSoldDetail && !totalsAlignWithCatalog ? (
               <p className="mt-2 text-xs text-amber-800">
-                La somme des restants par type ({sumRemainingByType}) diffère du total « disponible » de l’API (
-                {ticketStats.available}). Vérifiez la cohérence côté backend ou les types inactifs.
+                La somme des lignes (restants {sumRemainingByType}, vendus {sumSoldByType}, total {sumTotalByType})
+                ne correspond pas aux totaux catalogue (restants {ticketStats.available}, vendus {ticketStats.sold},
+                total {ticketStats.total}). Vérifiez les forfaits inactifs ou contactez le support technique.
               </p>
             ) : null}
           </>
@@ -321,25 +389,25 @@ export default function DashboardAdmin() {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-ink-500">Total</span>
-              <span className="font-semibold text-ink-900">{stats.payments.total}</span>
+              <span className="font-semibold text-ink-900">{payments.total}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-ink-500">Complétés</span>
-              <span className="font-semibold text-emerald-700">{stats.payments.completed}</span>
+              <span className="font-semibold text-emerald-700">{payments.completed}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-ink-500">En attente</span>
-              <span className="font-semibold text-amber-700">{stats.payments.pending}</span>
+              <span className="font-semibold text-amber-700">{payments.pending}</span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-ink-500">Échoués</span>
-              <span className="font-semibold text-rose-700">{stats.payments.failed}</span>
+              <span className="font-semibold text-rose-700">{payments.failed}</span>
             </div>
             <div className="border-t border-ink-100 pt-3">
               <div className="flex justify-between items-center">
                 <span className="font-semibold text-ink-900">Revenus</span>
                 <span className="text-xl font-bold text-emerald-700">
-                  {formatCurrency(stats.payments.revenue)}
+                  {formatCurrency(payments.revenue)}
                 </span>
               </div>
             </div>
@@ -355,7 +423,7 @@ export default function DashboardAdmin() {
           <div>
             <h2 className="font-display text-lg font-bold text-ink-900">Utilisateurs de la plateforme</h2>
             <p className="mt-1 max-w-xl text-sm text-ink-600">
-              Liste, création, modification et suppression des comptes (agents, étudiants, etc.) via l’API.
+              Gérez les comptes agents et étudiants de la plateforme.
             </p>
           </div>
         </div>

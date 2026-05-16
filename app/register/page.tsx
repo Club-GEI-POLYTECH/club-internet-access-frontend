@@ -9,8 +9,9 @@ import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/contexts/AuthContext'
 import { logger } from '@/lib/logger'
 import { isSixDigitVerificationCode, isValidRegistrationEmail } from '@/lib/register-email'
-import { getSafeInternalRedirect, getSafeRedirectPath } from '@/lib/safe-redirect'
+import { getSafeInternalRedirect } from '@/lib/safe-redirect'
 import { getAuthRateLimitMessage, isAuthRateLimitError } from '@/lib/auth-flow-errors'
+import { toUserErrorMessage } from '@/lib/user-messages'
 
 function RegisterPageContent() {
   const router = useRouter()
@@ -102,11 +103,7 @@ function RegisterPageContent() {
         notify.error('Trop de tentatives', getAuthRateLimitMessage(error))
         return
       }
-      const message =
-        error instanceof Error
-          ? error.message
-          : 'Impossible d’envoyer le code. Vérifiez que le backend expose POST /auth/register/request (ou /resend).'
-      notify.error(message)
+      notify.error(toUserErrorMessage(error, 'Impossible d’envoyer le code. Réessayez dans quelques minutes.'))
     } finally {
       setSendingCode(false)
     }
@@ -141,20 +138,16 @@ function RegisterPageContent() {
       notify.success('Compte créé', 'Bienvenue !')
       logger.info('Register: inscription finalisée', { email: trimmedEmail })
 
-      router.push(getSafeRedirectPath(redirectTo, '/dashboard'))
+      router.push('/dashboard')
     } catch (error: unknown) {
       logger.error('Register: échec inscription', error)
       if (isAuthRateLimitError(error)) {
         notify.error('Trop de tentatives', getAuthRateLimitMessage(error))
         return
       }
-      const message =
-        error && typeof error === 'object' && 'response' in error
-          ? (error as { response?: { data?: { message?: string } } }).response?.data?.message
-          : error instanceof Error
-            ? error.message
-            : undefined
-      notify.error(message || 'Erreur lors de la validation du code ou de la création du compte')
+      notify.error(
+        toUserErrorMessage(error, 'Erreur lors de la validation du code ou de la création du compte'),
+      )
     } finally {
       setLoading(false)
     }
@@ -337,8 +330,8 @@ function RegisterPageContent() {
                   </button>
                 </div>
                 <p className="mt-1.5 text-xs text-ink-500">
-                  Ce bouton n’est actif que lorsque prénom, nom, e-mail et mot de passe (identiques ×2) sont valides. Il
-                  appelle l’API d’inscription <span className="font-medium">request</span> (puis <span className="font-medium">resend</span> si vous renvoyez le code).
+                  Ce bouton n’est actif que lorsque prénom, nom, e-mail et mot de passe (identiques ×2) sont valides. Un
+                  code à 6 chiffres vous sera envoyé par e-mail.
                 </p>
               </div>
 

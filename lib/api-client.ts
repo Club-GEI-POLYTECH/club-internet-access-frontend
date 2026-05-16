@@ -26,7 +26,13 @@ import type {
   TicketPurchaseResponse,
   CreateUserRequest,
   UpdateUserRequest,
+  UserWithPayments,
 } from '@/types/api'
+import type { PaginatedResponse, PaymentsListQuery, UsersListQuery } from '@/types/pagination'
+import type { ListMyTicketsParams, MyTicketListItem } from '@/types/api'
+import { normalizeMyTicketsPaginated } from '@/lib/normalize-my-tickets'
+import { buildListQueryString, normalizePaginatedResponse, normalizePaymentAmount } from '@/lib/paginated-api'
+import { normalizePaymentFromList } from '@/lib/normalize-payment-list'
 import type {
   InitiateKelpayPaymentRequest,
   InitiateKelpayPaymentResponse,
@@ -38,6 +44,12 @@ import type {
 import { getApiUrl, API_ENDPOINTS } from './api-endpoints'
 import { logger } from './logger'
 import { formatApiConnectionError } from './api-errors'
+import {
+  USER_GENERIC_ERROR,
+  USER_INVALID_RESPONSE,
+  USER_RATE_LIMIT,
+  USER_SERVICE_UNAVAILABLE,
+} from './user-messages'
 import {
   normalizeTicket,
   normalizeTicketList,
@@ -167,8 +179,7 @@ async function apiRequest<T>(
 
   if (response.status === 429) {
     logger.warn('API: 429 Too Many Requests', { endpoint })
-    let message =
-      'Trop de tentatives ou trop de requêtes. Patientez quelques instants avant de réessayer (limite côté serveur).'
+    let message = USER_RATE_LIMIT
     try {
       const error: ApiError = await response.json()
       const m = Array.isArray(error.message) ? error.message.join(', ') : error.message
@@ -181,7 +192,7 @@ async function apiRequest<T>(
 
   if (response.status === 503) {
     logger.warn('API: 503 Service Unavailable', { endpoint })
-    let message = 'Service temporairement indisponible. Réessayez dans quelques minutes.'
+    let message = USER_SERVICE_UNAVAILABLE
     try {
       const error: ApiError = await response.json()
       const m = Array.isArray(error.message) ? error.message.join(', ') : error.message
@@ -193,18 +204,20 @@ async function apiRequest<T>(
   }
 
   if (!response.ok) {
-    let message = `Erreur ${response.status}`
+    let message = USER_GENERIC_ERROR
     try {
       const error: ApiError = await response.json()
       logger.error('API: erreur', { endpoint, status: response.status }, error)
-      message = Array.isArray(error.message) ? error.message.join(', ') : error.message || message
+      const fromApi = Array.isArray(error.message) ? error.message.join(', ') : error.message
+      if (fromApi && String(fromApi).trim() && String(fromApi).length <= 200) {
+        message = String(fromApi).trim()
+      }
     } catch {
       logger.warn('API: corps d’erreur non JSON', { endpoint, status: response.status })
       if (response.status >= 502 && response.status <= 504) {
-        message =
-          "Le serveur d'API ne répond pas correctement (passerelle / timeout). Vérifiez qu'il est démarré et joignable."
+        message = USER_SERVICE_UNAVAILABLE
       } else if (response.status >= 500) {
-        message = "Erreur côté serveur d'API. Consultez les logs du backend."
+        message = USER_SERVICE_UNAVAILABLE
       }
     }
     throw new Error(message)
@@ -221,9 +234,7 @@ async function apiRequest<T>(
     return data as T
   } catch (error) {
     logger.error('API: réponse OK mais JSON illisible', { endpoint }, error)
-    throw new Error(
-      "Réponse invalide du serveur d'API (JSON attendu). Le service est peut-être indisponible ou en maintenance."
-    )
+    throw new Error(USER_INVALID_RESPONSE)
   }
 }
 
@@ -315,12 +326,34 @@ export const apiClient = {
   },
 
   payments: {
-    list: async (): Promise<Payment[]> => {
-      return apiRequest<Payment[]>('/payments')
+    /** Liste courte (1ʳᵉ page) — respecte la limite max acceptée par l’API (souvent ≤ 100). */
+    list: async (limit = 20): Promise<Payment[]> => {
+      const safeLimit = Math.min(Math.max(1, limit), 100)
+      const { data } = await apiClient.payments.listPaginated({ page: 1, limit: safeLimit })
+      return data
+    },
+
+    listPaginated: async (query: PaymentsListQuery = {}): Promise<PaginatedResponse<Payment>> => {
+      const page = query.page ?? 1
+      const limit = query.limit ?? 20
+      const qs = buildListQueryString({
+        page,
+        limit,
+        status: query.status,
+        method: query.method,
+        createdById: query.createdById,
+      })
+      const raw = await apiRequest<unknown>(`/payments${qs}`)
+      const result = normalizePaginatedResponse<Payment>(raw, page, limit)
+      return {
+        data: result.data.map((p) => normalizePaymentFromList(p)),
+        meta: result.meta,
+      }
     },
 
     getById: async (id: string): Promise<Payment> => {
-      return apiRequest<Payment>(`/payments/${id}`)
+      const raw = await apiRequest<Payment>(`/payments/${id}`)
+      return normalizePaymentFromList(raw)
     },
 
     getByTransactionId: async (transactionId: string): Promise<Payment> => {
@@ -396,10 +429,37 @@ export const apiClient = {
 
   /** Gestion des comptes — **`GET/POST/PUT/DELETE /api/users/*`** réservés au rôle **admin** (403 sinon). */
   users: {
-    list: async (): Promise<User[]> => {
-      const raw = await apiRequest<User[] | unknown>('/users')
-      const list = Array.isArray(raw) ? raw : []
-      return list.map((u) => sanitizePublicUser(u as User))
+    list: async (limit = 100): Promise<User[]> => {
+      const safeLimit = Math.min(Math.max(1, limit), 100)
+      const { data } = await apiClient.users.listPaginated({ page: 1, limit: safeLimit })
+      return data
+    },
+
+    listPaginated: async (query: UsersListQuery = {}): Promise<PaginatedResponse<UserWithPayments>> => {
+      const page = query.page ?? 1
+      const limit = query.limit ?? 20
+      const qs = buildListQueryString({
+        page,
+        limit,
+        paymentsLimit: query.paymentsLimit ?? 10,
+        role: query.role,
+      })
+      const raw = await apiRequest<unknown>(`/users${qs}`)
+      const result = normalizePaginatedResponse<UserWithPayments>(raw, page, limit)
+      return {
+        data: result.data.map((u) => {
+          const base = sanitizePublicUser(u)
+          return {
+            ...base,
+            payments: u.payments?.map((p) => ({
+              ...p,
+              amount: normalizePaymentAmount(p.amount),
+            })),
+            paymentsTotal: u.paymentsTotal,
+          }
+        }),
+        meta: result.meta,
+      }
     },
 
     getById: async (id: string): Promise<User> => {
@@ -547,9 +607,28 @@ export const apiClient = {
       }
     },
 
-    mine: async (): Promise<Ticket[]> => {
-      const raw = await apiRequest<Ticket[]>('/tickets/me')
-      return normalizeTicketList(raw)
+    minePaginated: async (
+      query: ListMyTicketsParams = {},
+    ): Promise<PaginatedResponse<MyTicketListItem>> => {
+      const page = query.page ?? 1
+      const limit = Math.min(Math.max(query.limit ?? 20, 1), 100)
+      const qs = buildListQueryString({
+        page,
+        limit,
+        status: query.status,
+      })
+      const raw = await apiRequest<unknown>(`/tickets/me${qs}`)
+      return normalizeMyTicketsPaginated(raw, page, limit)
+    },
+
+    /** 1ʳᵉ page par défaut — préférer `minePaginated` pour la pagination complète. */
+    mine: async (query: ListMyTicketsParams = {}): Promise<MyTicketListItem[]> => {
+      const { data } = await apiClient.tickets.minePaginated({
+        page: query.page ?? 1,
+        limit: query.limit ?? 100,
+        status: query.status,
+      })
+      return data
     },
 
     reserve: async (id: string): Promise<Ticket> => {
@@ -583,14 +662,16 @@ export const apiClient = {
         )
 
         if (!response.ok) {
-          let message = `Erreur ${response.status}`
+          let message = USER_GENERIC_ERROR
           try {
             const error = await response.json()
-            message = error.message || message
+            const fromApi = error.message
+            if (fromApi && String(fromApi).trim() && String(fromApi).length <= 200) {
+              message = String(fromApi).trim()
+            }
           } catch {
             if (response.status >= 502 && response.status <= 504) {
-              message =
-                "Le serveur d'API ne répond pas (import). Vérifiez qu'il est démarré."
+              message = USER_SERVICE_UNAVAILABLE
             }
           }
           throw new Error(message)
@@ -600,7 +681,7 @@ export const apiClient = {
           return await response.json()
         } catch (error) {
           logger.error('API: import recommendations — JSON invalide', error)
-          throw new Error("Réponse invalide du serveur après l'analyse du fichier.")
+          throw new Error('Impossible de lire le résultat de l’analyse. Réessayez.')
         }
       },
 
@@ -618,14 +699,16 @@ export const apiClient = {
         )
 
         if (!response.ok) {
-          let message = `Erreur ${response.status}`
+          let message = USER_GENERIC_ERROR
           try {
             const error = await response.json()
-            message = error.message || message
+            const fromApi = error.message
+            if (fromApi && String(fromApi).trim() && String(fromApi).length <= 200) {
+              message = String(fromApi).trim()
+            }
           } catch {
             if (response.status >= 502 && response.status <= 504) {
-              message =
-                "Le serveur d'API ne répond pas (import). Vérifiez qu'il est démarré."
+              message = USER_SERVICE_UNAVAILABLE
             }
           }
           throw new Error(message)
@@ -635,7 +718,7 @@ export const apiClient = {
           return await response.json()
         } catch (error) {
           logger.error('API: import CSV — JSON invalide', error)
-          throw new Error("Réponse invalide du serveur après l'import.")
+          throw new Error('Impossible de lire le résultat de l’import. Réessayez.')
         }
       },
 

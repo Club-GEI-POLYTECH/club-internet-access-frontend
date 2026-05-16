@@ -1,12 +1,19 @@
 'use client'
 
-import { useCallback, useEffect, useState, type FormEvent } from 'react'
-import { Pencil, Plus, Trash2, Users, RefreshCw } from 'lucide-react'
+import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { ChevronDown, ChevronRight, Pencil, Plus, Trash2, Users, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/contexts/AuthContext'
 import { apiClient } from '@/lib/api-client'
 import { notify } from '@/lib/notify'
-import type { CreateUserRequest, UpdateUserRequest, User } from '@/types/api'
+import { paymentStatusLabel, toUserErrorMessage } from '@/lib/user-messages'
+import type { CreateUserRequest, UpdateUserRequest, User, UserWithPayments } from '@/types/api'
 import { UserRole } from '@/types/api'
+import type { PaginationMeta } from '@/types/pagination'
+import ListToolbar from '@/components/ListToolbar'
+import PaginationBar from '@/components/PaginationBar'
+import { filterUsers } from '@/lib/client-list-filter'
+import { sortUsers } from '@/lib/client-list-sort'
+import { format } from 'date-fns'
 
 const roleLabel: Record<UserRole, string> = {
   [UserRole.ADMIN]: 'Admin',
@@ -16,10 +23,28 @@ const roleLabel: Record<UserRole, string> = {
 
 const roleOptions: UserRole[] = [UserRole.STUDENT, UserRole.AGENT, UserRole.ADMIN]
 
+const USER_SORT_OPTIONS = [
+  { value: 'createdAt', label: 'Date d’inscription' },
+  { value: 'email', label: 'E-mail' },
+  { value: 'lastName', label: 'Nom' },
+  { value: 'firstName', label: 'Prénom' },
+]
+
 export default function UserManagement() {
   const { user: currentUser } = useAuth()
-  const [users, setUsers] = useState<User[]>([])
+  const [usersRaw, setUsersRaw] = useState<UserWithPayments[]>([])
+  const [meta, setMeta] = useState<PaginationMeta | null>(null)
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(20)
+  const [paymentsLimit, setPaymentsLimit] = useState(10)
+  const [sortBy, setSortBy] = useState('createdAt')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
+  const [searchDraft, setSearchDraft] = useState('')
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState('')
+  const [activeFilter, setActiveFilter] = useState<'' | 'true' | 'false'>('')
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
   const [editUser, setEditUser] = useState<User | null>(null)
 
@@ -35,20 +60,64 @@ export default function UserManagement() {
   const loadUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const list = await apiClient.users.list()
-      setUsers(Array.isArray(list) ? list : [])
+      const result = await apiClient.users.listPaginated({
+        page,
+        limit,
+        paymentsLimit,
+        role: roleFilter || undefined,
+      })
+      setUsersRaw(result.data)
+      setMeta(result.meta)
     } catch (e: unknown) {
-      const msg = e instanceof Error ? e.message : 'Liste indisponible'
-      notify.error(msg)
-      setUsers([])
+      notify.error(toUserErrorMessage(e, 'Liste indisponible'))
+      setUsersRaw([])
+      setMeta(null)
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [page, limit, paymentsLimit, roleFilter])
+
+  const users = useMemo(() => {
+    let list = usersRaw
+    if (activeFilter === 'true') list = list.filter((u) => u.isActive)
+    else if (activeFilter === 'false') list = list.filter((u) => !u.isActive)
+    list = filterUsers(list, search)
+    return sortUsers(list, sortBy, sortOrder)
+  }, [usersRaw, activeFilter, search, sortBy, sortOrder])
 
   useEffect(() => {
+    if (!currentUser || currentUser.role !== UserRole.ADMIN) return
     void loadUsers()
-  }, [loadUsers])
+  }, [loadUsers, currentUser])
+
+  const applyFilters = () => {
+    setSearch(searchDraft.trim())
+  }
+
+  const resetFilters = () => {
+    setSearchDraft('')
+    setSearch('')
+    setRoleFilter('')
+    setActiveFilter('')
+    setSortBy('createdAt')
+    setSortOrder('desc')
+    setLimit(20)
+    setPaymentsLimit(10)
+    setPage(1)
+  }
+
+  const handleLimitChange = (next: number) => {
+    setLimit(next)
+    setPage(1)
+  }
+
+  const handleSortByChange = (value: string) => {
+    setSortBy(value)
+  }
+
+  const toggleSortOrder = () => {
+    setSortOrder((o) => (o === 'asc' ? 'desc' : 'asc'))
+  }
 
   if (!currentUser || currentUser.role !== UserRole.ADMIN) {
     return (
@@ -80,7 +149,7 @@ export default function UserManagement() {
       })
       void loadUsers()
     } catch (err: unknown) {
-      notify.error(err instanceof Error ? err.message : 'Création impossible')
+      notify.error(toUserErrorMessage(err, 'Création impossible'))
     }
   }
 
@@ -91,7 +160,7 @@ export default function UserManagement() {
       setEditUser(null)
       void loadUsers()
     } catch (err: unknown) {
-      notify.error(err instanceof Error ? err.message : 'Mise à jour impossible')
+      notify.error(toUserErrorMessage(err, 'Mise à jour impossible'))
     }
   }
 
@@ -106,7 +175,7 @@ export default function UserManagement() {
       notify.success('Utilisateur supprimé')
       void loadUsers()
     } catch (err: unknown) {
-      notify.error(err instanceof Error ? err.message : 'Suppression impossible')
+      notify.error(toUserErrorMessage(err, 'Suppression impossible'))
     }
   }
 
@@ -120,7 +189,7 @@ export default function UserManagement() {
             Utilisateurs
           </h1>
           <p className="mt-2 max-w-2xl text-sm text-ink-600">
-            Liste, création, modification et suppression via l’API <code className="rounded bg-ink-100 px-1 text-xs">/users</code>.
+            Créez, modifiez ou supprimez les comptes utilisateurs de la plateforme.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -136,59 +205,191 @@ export default function UserManagement() {
       </div>
 
       <div className="card overflow-hidden p-0">
+        <ListToolbar
+          searchValue={searchDraft}
+          onSearchChange={setSearchDraft}
+          searchPlaceholder="Nom, e-mail ou téléphone…"
+          sortBy={sortBy}
+          sortOrder={sortOrder}
+          onSortByChange={handleSortByChange}
+          onSortOrderToggle={toggleSortOrder}
+          sortOptions={USER_SORT_OPTIONS}
+          limit={limit}
+          onLimitChange={handleLimitChange}
+          onApply={applyFilters}
+          onReset={resetFilters}
+          filters={
+            <>
+              <div className="flex min-w-[120px] flex-col">
+                <label htmlFor="users-filter-role" className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Rôle
+                </label>
+                <select
+                  id="users-filter-role"
+                  className="input text-sm"
+                  value={roleFilter}
+                  onChange={(e) => {
+                    setRoleFilter(e.target.value)
+                    setPage(1)
+                  }}
+                >
+                  <option value="">Tous</option>
+                  {roleOptions.map((r) => (
+                    <option key={r} value={r}>
+                      {roleLabel[r]}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex min-w-[120px] flex-col">
+                <label htmlFor="users-filter-active" className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Compte
+                </label>
+                <select
+                  id="users-filter-active"
+                  className="input text-sm"
+                  value={activeFilter}
+                  onChange={(e) => setActiveFilter(e.target.value as '' | 'true' | 'false')}
+                >
+                  <option value="">Tous</option>
+                  <option value="true">Actifs</option>
+                  <option value="false">Inactifs</option>
+                </select>
+              </div>
+              <div className="flex min-w-[120px] flex-col">
+                <label htmlFor="users-payments-limit" className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-500">
+                  Paiements affichés
+                </label>
+                <select
+                  id="users-payments-limit"
+                  className="input text-sm"
+                  value={paymentsLimit}
+                  onChange={(e) => {
+                    setPaymentsLimit(Number(e.target.value))
+                    setPage(1)
+                  }}
+                >
+                  {[5, 10, 20, 50].map((n) => (
+                    <option key={n} value={n}>
+                      {n} max.
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          }
+        />
+
         {loading ? (
           <div className="flex justify-center py-16">
             <div className="h-10 w-10 animate-spin rounded-full border-2 border-primary-200 border-t-primary-600" />
           </div>
         ) : users.length === 0 ? (
-          <p className="py-12 text-center text-ink-500">Aucun utilisateur retourné par l’API.</p>
+          <p className="py-12 text-center text-ink-500">Aucun utilisateur ne correspond à vos critères.</p>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[800px] text-left text-sm">
               <thead className="border-b border-ink-200 bg-ink-50/80 text-xs font-semibold uppercase tracking-wide text-ink-500">
                 <tr>
+                  <th className="w-8 px-2 py-3" aria-hidden />
                   <th className="px-4 py-3">Nom</th>
                   <th className="px-4 py-3">E-mail</th>
                   <th className="px-4 py-3">Rôle</th>
+                  <th className="px-4 py-3">Paiements</th>
                   <th className="px-4 py-3">Actif</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-100">
-                {users.map((u) => (
-                  <tr key={u.id} className="hover:bg-ink-50/60">
-                    <td className="px-4 py-3 font-medium text-ink-900">
-                      {u.firstName} {u.lastName}
-                    </td>
-                    <td className="px-4 py-3 text-ink-700">{u.email}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-800">
-                        {roleLabel[u.role]}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">{u.isActive ? 'Oui' : 'Non'}</td>
-                    <td className="px-4 py-3 text-right">
-                      <button type="button" className="btn btn-sm btn-secondary mr-2 inline-flex items-center gap-1" onClick={() => setEditUser(u)}>
-                        <Pencil className="h-3.5 w-3.5" />
-                        Modifier
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-sm inline-flex items-center gap-1 border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 disabled:opacity-40"
-                        onClick={() => void handleDelete(u)}
-                        disabled={u.id === currentUser.id}
-                        title={u.id === currentUser.id ? 'Impossible de supprimer votre compte' : undefined}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        Supprimer
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {users.map((u) => {
+                  const paymentCount = u.paymentsTotal ?? u.payments?.length ?? 0
+                  const expanded = expandedUserId === u.id
+                  const hasPayments = (u.payments?.length ?? 0) > 0
+                  return (
+                    <Fragment key={u.id}>
+                      <tr className="hover:bg-ink-50/60">
+                        <td className="px-2 py-3">
+                          {hasPayments ? (
+                            <button
+                              type="button"
+                              className="rounded p-1 text-ink-500 hover:bg-ink-100"
+                              onClick={() => setExpandedUserId(expanded ? null : u.id)}
+                              aria-expanded={expanded ? 'true' : 'false'}
+                              aria-label={expanded ? 'Masquer les paiements' : 'Afficher les paiements'}
+                            >
+                              {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            </button>
+                          ) : null}
+                        </td>
+                        <td className="px-4 py-3 font-medium text-ink-900">
+                          {u.firstName} {u.lastName}
+                        </td>
+                        <td className="px-4 py-3 text-ink-700">{u.email}</td>
+                        <td className="px-4 py-3">
+                          <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs font-semibold text-primary-800">
+                            {roleLabel[u.role]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-ink-600">
+                          {paymentCount > 0 ? (
+                            <span>
+                              {paymentCount} paiement{paymentCount > 1 ? 's' : ''}
+                              {(u.paymentsTotal ?? 0) > (u.payments?.length ?? 0) && u.payments?.length
+                                ? ` (${u.payments.length} affichés)`
+                                : null}
+                            </span>
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                        <td className="px-4 py-3">{u.isActive ? 'Oui' : 'Non'}</td>
+                        <td className="px-4 py-3 text-right">
+                          <button type="button" className="btn btn-sm btn-secondary mr-2 inline-flex items-center gap-1" onClick={() => setEditUser(u)}>
+                            <Pencil className="h-3.5 w-3.5" />
+                            Modifier
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-sm inline-flex items-center gap-1 border border-rose-200 bg-white text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+                            onClick={() => void handleDelete(u)}
+                            disabled={u.id === currentUser.id}
+                            title={u.id === currentUser.id ? 'Impossible de supprimer votre compte' : undefined}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                            Supprimer
+                          </button>
+                        </td>
+                      </tr>
+                      {expanded && hasPayments ? (
+                        <tr className="bg-ink-50/40">
+                          <td colSpan={7} className="px-4 py-3">
+                            <ul className="space-y-2 text-xs">
+                              {u.payments!.map((p) => (
+                                <li
+                                  key={p.id}
+                                  className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg border border-ink-100 bg-white px-3 py-2"
+                                >
+                                  <span className="font-semibold text-ink-900">{p.amount.toLocaleString('fr-FR')} CDF</span>
+                                  <span className="text-ink-600">{paymentStatusLabel(p.status)}</span>
+                                  <span className="text-ink-500">{format(new Date(p.createdAt), 'dd/MM/yyyy HH:mm')}</span>
+                                  {p.transactionId ? (
+                                    <span className="font-mono text-ink-500">Réf. {p.transactionId}</span>
+                                  ) : null}
+                                </li>
+                              ))}
+                            </ul>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
           </div>
         )}
+
+        <PaginationBar meta={meta} onPageChange={setPage} loading={loading} />
       </div>
 
       {createOpen ? (

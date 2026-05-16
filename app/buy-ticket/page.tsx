@@ -30,7 +30,10 @@ import {
   kelpayVerifyReadyToConfirm,
 } from '@/types/frontend-types'
 import { notify } from '@/lib/notify'
+import { toUserErrorMessage } from '@/lib/user-messages'
 import { useAuth } from '@/contexts/AuthContext'
+import { AUTH_DASHBOARD_PATH, canPurchaseTickets } from '@/lib/auth-routes'
+import { UserRole } from '@/types/api'
 
 function BuyTicketFallback() {
   return (
@@ -107,11 +110,11 @@ async function fetchTicketAfterKelpay(ticketId: string, paymentId: string): Prom
   const delays = [0, 1500, 2500, 3500, 5000]
   for (const ms of delays) {
     if (ms > 0) await new Promise((r) => setTimeout(r, ms))
-    const list = await apiClient.tickets.mine()
+    const { data: list } = await apiClient.tickets.minePaginated({ page: 1, limit: 50 })
     const byPayment = list.find((t) => t.paymentId === paymentId)
-    if (byPayment) return byPayment
+    if (byPayment) return byPayment as Ticket
     const byId = list.find((t) => t.id === ticketId && t.status === TicketStatus.SOLD)
-    if (byId) return byId
+    if (byId) return byId as Ticket
   }
   return null
 }
@@ -150,6 +153,12 @@ function BuyTicketContent() {
   /** Plusieurs entrées identiques côté affichage → une seule carte + premier ticket réservé pour l’API. */
   const showCompactStock = homogeneousOfferKey != null && tickets.length > 1
 
+  /** Stock affiché : total catalogue si connu, sinon nombre de lignes chargées. */
+  const stockCount =
+    ticketType?.availableCount != null && ticketType.availableCount > 0
+      ? ticketType.availableCount
+      : tickets.length
+
   /** Un seul ticket ou stock homogène : pas de colonne « liste » + colonne « paiement ». */
   const singleCheckoutCard = tickets.length === 1 || showCompactStock
 
@@ -182,9 +191,20 @@ function BuyTicketContent() {
 
     if (!user) {
       logger.log('BuyTicket: non authentifié → /login')
-      const q = searchParams.toString()
-      const redirectTo = encodeURIComponent(q ? `/buy-ticket?${q}` : '/buy-ticket')
+      const redirectTo = encodeURIComponent(AUTH_DASHBOARD_PATH)
       router.replace(`/login?redirectTo=${redirectTo}`)
+      return
+    }
+
+    if (!canPurchaseTickets(user.role)) {
+      logger.info('BuyTicket: rôle non autorisé à acheter', { role: user.role })
+      notify.info(
+        'Accès réservé',
+        user.role === UserRole.ADMIN
+          ? 'Les administrateurs gèrent les tickets depuis l’import CSV, pas depuis l’achat en ligne.'
+          : 'Les agents suivent les paiements depuis leur tableau de bord.',
+      )
+      router.replace(AUTH_DASHBOARD_PATH)
       return
     }
 
@@ -367,7 +387,7 @@ function BuyTicketContent() {
     const normalizedPhone = phoneNumber.replace(/\s/g, '')
     const amount = kelpayTypePriceCdf(ticketType)
     if (amount === undefined) {
-      notify.error('Montant KELPAY indisponible (prix du forfait). Rechargez la page ou contactez l’administrateur.')
+      notify.error('Prix du forfait indisponible. Rechargez la page ou contactez l’administrateur.')
       return
     }
 
@@ -390,8 +410,7 @@ function BuyTicketContent() {
       logger.info('BuyTicket: Kelpay initié', { paymentId: init.paymentId, status: init.status })
     } catch (error: unknown) {
       logger.error('BuyTicket: Kelpay initiate échoué', error)
-      const message = error instanceof Error ? error.message : "Erreur lors de l'initiation du paiement"
-      notify.error(message)
+      notify.error(toUserErrorMessage(error, "Impossible d'envoyer la demande de paiement. Réessayez."))
     } finally {
       setKelpaySubmitting(null)
     }
@@ -461,8 +480,7 @@ function BuyTicketContent() {
       }
     } catch (error: unknown) {
       logger.error('BuyTicket: Kelpay verify échoué', error)
-      const message = error instanceof Error ? error.message : 'Erreur lors de la vérification'
-      notify.error(message)
+      notify.error(toUserErrorMessage(error, 'Impossible de vérifier le paiement. Réessayez.'))
     } finally {
       setKelpaySubmitting(null)
     }
@@ -486,12 +504,12 @@ function BuyTicketContent() {
       }
     } catch (error: unknown) {
       logger.error('BuyTicket: Kelpay confirm échoué', error)
-      const message = error instanceof Error ? error.message : 'Erreur lors de la confirmation'
+      const message = error instanceof Error ? error.message : ''
       const lower = message.toLowerCase()
       if (lower.includes('409') || lower.includes('conflict') || lower.includes('pas encore')) {
-        notify.error('Kelpay n’a pas encore confirmé. Relancez « Vérifier » dans un moment.')
+        notify.error('Le paiement n’est pas encore confirmé sur votre téléphone. Relancez « Vérifier » dans un moment.')
       } else {
-        notify.error(message)
+        notify.error(toUserErrorMessage(error, 'Impossible de confirmer le paiement. Réessayez.'))
       }
     } finally {
       setKelpaySubmitting(null)
@@ -528,7 +546,7 @@ function BuyTicketContent() {
       )
     } catch (error: unknown) {
       logger.error('BuyTicket: refresh paiement échoué', error)
-      notify.error(error instanceof Error ? error.message : 'Erreur lors du rafraîchissement')
+      notify.error(toUserErrorMessage(error, 'Impossible d’actualiser le paiement. Réessayez.'))
     } finally {
       setKelpaySubmitting(null)
     }
@@ -538,7 +556,7 @@ function BuyTicketContent() {
     if (!kelpaySession) return
     if (
       !window.confirm(
-        'Annuler cette demande de paiement Mobile Money ?\nLe ticket pourra redevenir disponible si le serveur accepte l’annulation (paiement encore en attente).'
+        'Annuler cette demande de paiement Mobile Money ?\nLe forfait réservé pourra redevenir disponible pour d’autres acheteurs.'
       )
     ) {
       return
@@ -564,7 +582,7 @@ function BuyTicketContent() {
       logger.info('BuyTicket: Kelpay annulé par l’utilisateur', { paymentId: kelpaySession.paymentId })
     } catch (error: unknown) {
       logger.error('BuyTicket: annulation Kelpay échouée', error)
-      notify.error(error instanceof Error ? error.message : "Impossible d'annuler pour l'instant.")
+      notify.error(toUserErrorMessage(error, "Impossible d'annuler pour l'instant."))
     } finally {
       setKelpaySubmitting(null)
     }
@@ -924,7 +942,10 @@ function BuyTicketContent() {
               <h2 className="font-display text-lg font-bold text-ink-900">
                 {showCompactStock ? (
                   <>
-                    Stock · <span className="text-primary-600">{tickets.length} ticket(s)</span> identique(s)
+                    Forfait ·{' '}
+                    <span className="text-primary-600">
+                      {stockCount} disponible{stockCount > 1 ? 's' : ''}
+                    </span>
                   </>
                 ) : (
                   <>
@@ -957,9 +978,9 @@ function BuyTicketContent() {
                       )}
                     </div>
                     <p className="mt-3 text-sm leading-relaxed text-ink-600">
-                      Inutile de répéter la même ligne des centaines de fois : au paiement,{' '}
-                      <strong className="text-ink-800">un ticket libre</strong> parmi ce stock vous est attribué
-                      automatiquement (en pratique le premier de la file côté serveur).
+                      Tous ces forfaits sont équivalents. Au paiement,{' '}
+                      <strong className="text-ink-800">nous vous en attribuons un automatiquement</strong> parmi ceux
+                      encore disponibles.
                     </p>
                   </div>
                   <button
@@ -1026,10 +1047,11 @@ function BuyTicketContent() {
                 <div className="mt-4 space-y-6">
                   <div className="rounded-2xl border border-primary-100 bg-gradient-to-br from-primary-50/90 to-white p-4">
                     <h3 className="text-xs font-bold uppercase tracking-widest text-primary-800">Récapitulatif</h3>
-                    {showCompactStock && tickets.length > 1 ? (
+                    {showCompactStock && stockCount > 1 ? (
                       <p className="mt-2 text-xs leading-relaxed text-ink-600">
-                        <strong className="text-ink-800">{tickets.length} tickets</strong> identiques en stock — le
-                        serveur vous en attribue un automatiquement au paiement.
+                        <strong className="text-ink-800">{stockCount} forfaits identiques</strong> encore disponibles.
+                        Vous n&apos;avez pas à en choisir un : nous vous en attribuons un automatiquement lors du
+                        paiement.
                       </p>
                     ) : null}
                     <div className="mt-3 space-y-2 text-sm">
@@ -1062,9 +1084,9 @@ function BuyTicketContent() {
                     <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">Paiement</p>
                     <div className="flex flex-col items-center gap-2 rounded-2xl border-2 border-primary-500 bg-gradient-to-br from-primary-50 to-cyan-50/80 p-4 text-center shadow-md ring-2 ring-primary-500/20">
                       <CreditCard className="h-6 w-6 text-primary-600" />
-                      <span className="text-sm font-bold text-ink-900">Mobile Money (KELPAY)</span>
+                      <span className="text-sm font-bold text-ink-900">Mobile Money</span>
                       <span className="text-[10px] font-medium leading-tight text-ink-500">
-                        3 étapes : demande → vérifier → confirmer (API avec votre session)
+                        3 étapes : envoyer la demande → vérifier → confirmer
                       </span>
                     </div>
                   </div>
@@ -1083,7 +1105,7 @@ function BuyTicketContent() {
                       required
                     />
                     <p className="mt-1.5 text-xs text-ink-500">
-                      Numéro Mobile Money pour le débit KELPAY (+243… ou 09…).
+                      Numéro Mobile Money débité pour ce forfait (+243… ou 09…).
                     </p>
                   </div>
 
@@ -1091,8 +1113,8 @@ function BuyTicketContent() {
                     <div className="flex items-start gap-2">
                       <CreditCard className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
                       <span className="text-sm font-semibold leading-snug text-ink-800">
-                        Le navigateur n’appelle jamais Kelpay directement : initiate → verify → confirm sur l’API, avec votre
-                        JWT. Pas de polling automatique côté serveur après initiate.
+                        Après validation sur votre téléphone, utilisez « Vérifier » puis « Confirmer » pour activer votre
+                        accès Wi‑Fi.
                       </span>
                     </div>
                   </div>
@@ -1107,10 +1129,10 @@ function BuyTicketContent() {
                       <p className="text-xs text-ink-600">
                         Si vous rafraîchissez la page, cette étape est mémorisée sur cet appareil (session du navigateur) : en
                         revenant sur le même forfait, vous retrouvez « Vérifier » / « Confirmer » tant que le paiement n&apos;est
-                        pas terminé côté serveur.
+                        pas terminé.
                       </p>
                       <p className="break-all text-xs text-ink-500">
-                        Paiement : <span className="font-mono">{kelpaySession.paymentId}</span>
+                        Référence de suivi : <span className="font-medium">{kelpaySession.paymentId}</span>
                       </p>
                       <div className="flex flex-col gap-2 sm:flex-row">
                         <button
@@ -1181,8 +1203,8 @@ function BuyTicketContent() {
                           )}
                         </button>
                         <p className="mt-2 text-center text-[11px] text-ink-500">
-                          Réservé tant que le flux n’est pas terminé : vous pouvez abandonner ici si le statut est encore{' '}
-                          <strong>pending</strong> ou <strong>processing</strong> côté API.
+                          Disponible tant que le paiement n’est pas terminé : vous pouvez abandonner la demande tant qu’elle est
+                          encore en attente.
                         </p>
                       </div>
                     </div>

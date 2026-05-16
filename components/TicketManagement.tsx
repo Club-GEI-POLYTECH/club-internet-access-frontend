@@ -6,6 +6,7 @@ import { apiClient } from '@/lib/api-client'
 import { parseApiDecimal } from '@/lib/normalize-ticket-api'
 import { logger } from '@/lib/logger'
 import { notify } from '@/lib/notify'
+import { toUserErrorMessage } from '@/lib/user-messages'
 import type { TicketType } from '@/types/api'
 import type { CatalogDurationFallback, ImportTicketsMultipartOptions } from '@/types/frontend-types'
 
@@ -82,7 +83,7 @@ export default function TicketManagement() {
         }
       } catch (error) {
         logger.error('TicketManagement: erreur chargement types', error)
-        notify.error('Types indisponibles', 'Impossible de charger le catalogue (GET /tickets/types). Réessayez plus tard.')
+        notify.error('Types indisponibles', 'Impossible de charger la liste des forfaits. Réessayez plus tard.')
       } finally {
         setLoadingTypes(false)
       }
@@ -96,7 +97,7 @@ export default function TicketManagement() {
       notify.error(
         useCatalogFallback
           ? 'Choisissez une durée catalogue (24h / 7j / 30j)'
-          : 'Choisissez un type de ticket dans la liste (UUID depuis GET /tickets/types)',
+          : 'Choisissez un forfait dans la liste.',
       )
       return
     }
@@ -140,7 +141,7 @@ export default function TicketManagement() {
       notify.success('Analyse terminée', 'Vérifiez les totaux ci-dessous, puis lancez l’import réel.')
     } catch (error: any) {
       logger.error('TicketManagement: erreur analyse import', error)
-      notify.error('Analyse impossible', error.message || 'Le fichier ou le serveur a refusé la prévisualisation.')
+      notify.error('Analyse impossible', toUserErrorMessage(error, 'Impossible d’analyser ce fichier. Vérifiez le format et le forfait choisi.'))
       setSelectedFile(null)
     } finally {
       setAnalyzing(false)
@@ -188,7 +189,7 @@ export default function TicketManagement() {
       setRecommendations(null)
     } catch (error: any) {
       logger.error('TicketManagement: erreur import', error)
-      notify.error('Import interrompu', error.message || 'Le serveur n’a pas pu finaliser l’import.')
+      notify.error('Import interrompu', toUserErrorMessage(error, 'L’import n’a pas pu être finalisé. Réessayez.'))
     } finally {
       setUploading(false)
     }
@@ -250,7 +251,7 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
   const importTargetSummary = useCatalogFallback
     ? `Repli catalogue · ${catalogDurationLabels[catalogDuration]}`
     : selectedType
-      ? `${selectedType.name} · ${formatCdf(selectedType.price)} · UUID ${selectedType.id}`
+      ? `${selectedType.name} · ${formatCdf(selectedType.price)}`
       : '—'
 
   return (
@@ -259,9 +260,8 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-primary-600">Administration</p>
         <h2 className="font-display mt-1 text-3xl font-bold tracking-tight text-ink-900">Import des tickets</h2>
         <p className="mt-2 max-w-2xl text-ink-600">
-          Importez des tickets pré-générés depuis votre fichier CSV (aucune création de codes dans cette application). Les types
-          proviennent de <code className="rounded bg-ink-100 px-1 text-xs">GET /tickets/types</code> (id = valeur{' '}
-          <code className="rounded bg-ink-100 px-1 text-xs">ticketTypeId</code>).
+          Importez des tickets pré-générés depuis votre fichier CSV. Choisissez d’abord le forfait concerné, puis analysez le
+          fichier avant l’import définitif.
         </p>
       </div>
 
@@ -273,8 +273,8 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-ink-600">Cible d&apos;import *</p>
             <p className="mt-1 text-sm text-ink-500">
-              Par défaut : un type du catalogue (UUID). Option avancée : repli <code className="rounded bg-white/80 px-1">catalogDuration</code>{' '}
-              sans UUID (comportement historique).
+              Par défaut : choisissez un forfait dans le catalogue. Option avancée : durée standard sans sélection de forfait
+              précis.
             </p>
           </div>
 
@@ -287,8 +287,8 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
               onChange={(e) => setUseCatalogFallback(e.target.checked)}
             />
             <span className="text-sm text-ink-800">
-              <span className="font-semibold">Repli catalogue sans UUID</span>
-              <span className="block text-xs text-ink-500">Envoie uniquement <code className="rounded bg-ink-50 px-1">catalogDuration</code> (24h | 7j | 30j), sans <code className="rounded bg-ink-50 px-1">ticketTypeId</code>.</span>
+              <span className="font-semibold">Durée standard sans forfait précis</span>
+              <span className="block text-xs text-ink-500">Utilise une durée catalogue (24 h, 7 j ou 30 j) sans choisir un forfait dans la liste.</span>
             </span>
           </label>
 
@@ -314,10 +314,10 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
           ) : (
             <div>
               <label htmlFor="import-ticket-type" className="text-xs font-semibold uppercase tracking-wide text-ink-600">
-                Type de ticket (valeur = ticketTypeId)
+                Type de forfait
               </label>
               {ticketTypes.length === 0 && !loadingTypes ? (
-                <p className="mt-2 text-sm text-amber-800">Aucun type actif renvoyé par l&apos;API. Créez des types côté backend ou vérifiez GET /tickets/types.</p>
+                <p className="mt-2 text-sm text-amber-800">Aucun forfait actif disponible. Créez des forfaits ou contactez le support technique.</p>
               ) : (
                 <select
                   id="import-ticket-type"
@@ -406,9 +406,8 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
 
             {localPreviewStats && recommendations.validLines === 0 && localPreviewStats.dataLines > 0 && (
               <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-900">
-                Le backend de prévisualisation retourne 0 ligne valide alors que le fichier contient des lignes. Vérifiez{' '}
-                <code className="rounded bg-white/80 px-1">POST /admin/tickets/import/recommendations</code> (repli 404 :{' '}
-                <code className="rounded bg-white/80 px-1">POST /tickets/admin/import/recommendations</code>).
+                L’analyse n’a validé aucune ligne alors que le fichier en contient. Vérifiez le format du CSV, les colonnes
+                attendues et le forfait sélectionné.
               </div>
             )}
 
@@ -438,17 +437,13 @@ user3,pass3,PREMIUM,7d,5GB,2026-01-27 22:52:37`
           <div className="flex items-start gap-3">
             <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-primary-600" />
             <div className="text-sm text-primary-950/90">
-              <p className="font-semibold text-primary-900">Instructions (contrat Nest + Multer)</p>
+              <p className="font-semibold text-primary-900">Comment importer</p>
               <ul className="mt-2 list-inside list-disc space-y-1.5">
-                <li>Charger les types une fois via GET /tickets/types ; chaque id (UUID) est la valeur de ticketTypeId.</li>
-                <li>
-                  Multipart : champ <code className="rounded bg-white/80 px-1">file</code> + soit{' '}
-                  <code className="rounded bg-white/80 px-1">ticketTypeId</code> (recommandé), soit seulement{' '}
-                  <code className="rounded bg-white/80 px-1">catalogDuration</code> (24h | 7j | 30j) sans UUID.
-                </li>
-                <li>Import : POST /admin/tickets/import (repli automatique 404 sur POST /tickets/admin/import).</li>
-                <li>Le fichier doit contenir : Username, Password, Profile, Time Limit, Data Limit, Comment</li>
-                <li>Prévisualisation avant import ; Time Limit / Data Limit peuvent être vides</li>
+                <li>Choisissez le forfait cible (ou une durée standard en option avancée).</li>
+                <li>Préparez un fichier CSV avec les colonnes : Username, Password, Profile, Time Limit, Data Limit, Comment.</li>
+                <li>Analysez le fichier pour vérifier les totaux avant l’import définitif.</li>
+                <li>Les colonnes Time Limit et Data Limit peuvent rester vides si besoin.</li>
+                <li>Lancez l’import réel une fois la prévisualisation validée.</li>
               </ul>
             </div>
           </div>

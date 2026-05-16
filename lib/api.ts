@@ -2,6 +2,7 @@
 import { getToken, removeToken } from './auth'
 import { getApiUrl } from './api-endpoints'
 import { formatApiConnectionError, isLikelyNetworkOrBackendDown } from './api-errors'
+import { USER_GENERIC_ERROR, USER_INVALID_RESPONSE, USER_SERVICE_UNAVAILABLE } from './user-messages'
 
 const API_URL = getApiUrl()
 
@@ -66,14 +67,16 @@ export async function apiRequest<T>(
     }
 
     if (!response.ok) {
-      let errorMessage = `Erreur ${response.status}`
+      let errorMessage = USER_GENERIC_ERROR
       try {
         const error = await response.json()
-        errorMessage = error.message || errorMessage
+        const fromApi = error.message
+        if (fromApi && String(fromApi).trim() && String(fromApi).length <= 200) {
+          errorMessage = String(fromApi).trim()
+        }
       } catch {
         if (response.status >= 502 && response.status <= 504) {
-          errorMessage =
-            "Le serveur d'API ne répond pas correctement. Vérifiez qu'il est démarré et joignable."
+          errorMessage = USER_SERVICE_UNAVAILABLE
         }
       }
       throw new Error(errorMessage) as ApiError
@@ -86,9 +89,7 @@ export async function apiRequest<T>(
     try {
       return await response.json()
     } catch {
-      throw new Error(
-        "Réponse invalide du serveur d'API (JSON attendu). Le service est peut-être indisponible."
-      ) as ApiError
+      throw new Error(USER_INVALID_RESPONSE) as ApiError
     }
   } catch (error) {
     if (error && typeof error === 'object' && 'status' in error) {
@@ -100,7 +101,7 @@ export async function apiRequest<T>(
     if (error instanceof Error) {
       throw { message: error.message, status: undefined } as ApiError
     }
-    throw { message: 'Erreur inattendue lors de la communication avec le serveur.', status: undefined } as ApiError
+    throw { message: USER_GENERIC_ERROR, status: undefined } as ApiError
   }
 }
 

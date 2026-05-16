@@ -20,7 +20,7 @@ export default function ResetPassword() {
 
   useEffect(() => {
     if (!token) {
-      notify.error('Token de réinitialisation manquant')
+      notify.error('Lien de réinitialisation invalide ou expiré')
       router.push('/forgot-password')
     }
   }, [token, router])
@@ -39,7 +39,7 @@ export default function ResetPassword() {
     }
 
     if (!token) {
-      notify.error('Token de réinitialisation manquant')
+      notify.error('Lien de réinitialisation invalide ou expiré')
       return
     }
 

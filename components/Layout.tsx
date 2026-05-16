@@ -39,11 +39,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         ]
 
       case UserRole.AGENT:
-        return [
-          ...baseNav,
-          { name: 'Vendre un ticket', href: '/buy-ticket', icon: ShoppingCart },
-          { name: 'Paiements', href: '/payments', icon: CreditCard },
-        ]
+        return [...baseNav, { name: 'Paiements', href: '/payments', icon: CreditCard }]
 
       case UserRole.STUDENT:
         return [
