@@ -6,15 +6,16 @@ import { apiClient } from '@/lib/api-client'
 import { CheckCircle, XCircle, Clock, DollarSign, Ban, Loader2, RefreshCw } from 'lucide-react'
 import { notify } from '@/lib/notify'
 import { format } from 'date-fns'
-import { PaymentMethod, type Payment } from '@/types/api'
+import { PaymentMethod, UserRole, type Payment } from '@/types/api'
 import { isKelpayPaymentPendingOrProcessing } from '@/types/frontend-types'
 import { paymentStatusLabel, toUserErrorMessage } from '@/lib/user-messages'
 import type { PaginationMeta } from '@/types/pagination'
 import ListToolbar from '@/components/ListToolbar'
 import PaginationBar from '@/components/PaginationBar'
+import PaymentForfaitDisplay from '@/components/PaymentForfaitDisplay'
 import { filterPayments } from '@/lib/client-list-filter'
-import { extractTicketUsernameFromNotes } from '@/lib/normalize-payment-list'
 import { sortPayments } from '@/lib/client-list-sort'
+import { useAuth } from '@/contexts/AuthContext'
 
 const PAYMENT_SORT_OPTIONS = [
   { value: 'createdAt', label: 'Date' },
@@ -37,6 +38,8 @@ function isSuccessfulPayment(status: string) {
 }
 
 export default function Payments() {
+  const { user } = useAuth()
+  const isAdmin = user?.role === UserRole.ADMIN
   const [paymentsRaw, setPaymentsRaw] = useState<Payment[]>([])
   const [meta, setMeta] = useState<PaginationMeta | null>(null)
   const [loading, setLoading] = useState(true)
@@ -415,9 +418,11 @@ export default function Payments() {
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500">
                     Montant
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500">
-                    Client
-                  </th>
+                  {isAdmin ? (
+                    <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500">
+                      Client
+                    </th>
+                  ) : null}
                   <th className="px-6 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-500">
                     Forfait
                   </th>
@@ -447,33 +452,24 @@ export default function Payments() {
                         <span className="font-semibold text-ink-900">{payment.amount.toLocaleString('fr-FR')} CDF</span>
                       </div>
                     </td>
+                    {isAdmin ? (
+                      <td className="px-6 py-4 text-sm text-ink-600">
+                        {payment.createdBy ? (
+                          <div>
+                            <p className="font-medium text-ink-900">
+                              {payment.createdBy.firstName} {payment.createdBy.lastName}
+                            </p>
+                            <p className="text-xs text-ink-500">{payment.createdBy.email}</p>
+                          </div>
+                        ) : payment.phoneNumber ? (
+                          <p className="text-ink-700">{payment.phoneNumber}</p>
+                        ) : (
+                          '—'
+                        )}
+                      </td>
+                    ) : null}
                     <td className="px-6 py-4 text-sm text-ink-600">
-                      {payment.createdBy ? (
-                        <div>
-                          <p className="font-medium text-ink-900">
-                            {payment.createdBy.firstName} {payment.createdBy.lastName}
-                          </p>
-                          <p className="text-xs text-ink-500">{payment.createdBy.email}</p>
-                        </div>
-                      ) : payment.phoneNumber ? (
-                        <p className="text-ink-700">{payment.phoneNumber}</p>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-ink-600">
-                      {payment.ticket?.username ? (
-                        <div>
-                          <span className="font-mono text-ink-800">{payment.ticket.username}</span>
-                          {payment.ticket.profile ? (
-                            <p className="mt-0.5 text-xs text-ink-500">{payment.ticket.profile}</p>
-                          ) : null}
-                        </div>
-                      ) : extractTicketUsernameFromNotes(payment.notes) ? (
-                        <span className="font-mono text-ink-800">{extractTicketUsernameFromNotes(payment.notes)}</span>
-                      ) : (
-                        '—'
-                      )}
+                      <PaymentForfaitDisplay payment={payment} viewerRole={user?.role} />
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-ink-600">
                       {getMethodLabel(payment.method)}

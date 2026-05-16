@@ -1,4 +1,5 @@
 import { normalizePaymentAmount } from '@/lib/paginated-api'
+import { formatTicketTypeSubtitle } from '@/lib/user-messages'
 import type { Payment, PaymentTicketRef, User } from '@/types/api'
 import { UserRole } from '@/types/api'
 
@@ -35,13 +36,68 @@ function pickUser(raw: unknown): User | undefined {
 
 function pickTicketRef(raw: unknown): PaymentTicketRef | undefined {
   const r = asRecord(raw)
-  if (!r.id && !r.username && !r.profile) return undefined
+  const username = str(r.username ?? r.user_name)
+  const profile = str(r.profile)
+  if (!r.id && !username && !profile) return undefined
   return {
     id: String(r.id ?? ''),
-    username: str(r.username),
+    username,
     status: str(r.status),
-    profile: str(r.profile),
+    profile,
   }
+}
+
+function resolvePaymentTicket(
+  r: Record<string, unknown>,
+  notes?: string,
+  baseTicket?: PaymentTicketRef,
+): PaymentTicketRef | undefined {
+  let ticket =
+    pickTicketRef(r.ticket) ??
+    pickTicketRef(r.ticket_ref) ??
+    pickTicketRef(r.ticketRef) ??
+    (baseTicket ? pickTicketRef(baseTicket) : undefined)
+
+  const usernameFromNotes = extractTicketUsernameFromNotes(notes)
+  const ticketId = str(r.ticketId ?? r.ticket_id)
+
+  if (ticket) {
+    if (!ticket.username && usernameFromNotes) {
+      ticket = { ...ticket, username: usernameFromNotes }
+    }
+    if (!ticket.id && ticketId) {
+      ticket = { ...ticket, id: ticketId }
+    }
+    return ticket
+  }
+
+  if (ticketId || usernameFromNotes) {
+    return {
+      id: ticketId ?? '',
+      username: usernameFromNotes,
+      status: undefined,
+      profile: undefined,
+    }
+  }
+
+  return undefined
+}
+
+/** Identifiant Wi‑Fi (login) lié au paiement. */
+export function getPaymentTicketUsername(payment: Payment): string | undefined {
+  return payment.ticket?.username ?? extractTicketUsernameFromNotes(payment.notes)
+}
+
+/** Libellé forfait lisible (profil routeur), sans identifiant Wi‑Fi. */
+export function getPaymentForfaitLabel(payment: Payment): string | null {
+  const ticket = payment.ticket
+  if (ticket?.profile) {
+    const formatted = formatTicketTypeSubtitle({ profile: ticket.profile })
+    if (formatted) return formatted
+    const raw = ticket.profile.trim()
+    if (raw) return raw.replace(/_/g, ' ')
+  }
+  return null
 }
 
 /** Uniformise un paiement liste API (camelCase + snake_case, ticket / client). */
@@ -50,20 +106,7 @@ export function normalizePaymentFromList(raw: unknown): Payment {
   const base = (raw && typeof raw === 'object' ? raw : {}) as Payment
 
   const notes = str(r.notes) ?? base.notes
-  let ticket =
-    pickTicketRef(r.ticket) ??
-    pickTicketRef(r.ticket_ref) ??
-    (base.ticket ? pickTicketRef(base.ticket) : undefined)
-
-  const usernameFromNotes = extractTicketUsernameFromNotes(notes)
-  if (usernameFromNotes && !ticket?.username) {
-    ticket = {
-      id: ticket?.id ?? str(r.ticketId ?? r.ticket_id) ?? '',
-      username: usernameFromNotes,
-      status: ticket?.status,
-      profile: ticket?.profile,
-    }
-  }
+  const ticket = resolvePaymentTicket(r, notes, base.ticket)
 
   const createdBy =
     pickUser(r.createdBy) ??

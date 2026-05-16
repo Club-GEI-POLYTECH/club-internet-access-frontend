@@ -13,6 +13,7 @@ import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/contexts/AuthContext'
 import { filterPaymentsForUser } from '@/lib/payment-ownership'
 import { canRevealMyTicketPassword, getMyTicketProfileLabel } from '@/lib/normalize-my-tickets'
+import PaymentForfaitDisplay from '@/components/PaymentForfaitDisplay'
 
 const DASHBOARD_PREVIEW_LIMIT = 2
 
@@ -182,9 +183,14 @@ export default function DashboardStudent() {
                     <p className="text-sm text-ink-600">
                       {payment.createdAt && format(new Date(payment.createdAt), 'dd MMM yyyy à HH:mm', { locale: fr })}
                     </p>
-                    {payment.ticket?.username ? (
-                      <p className="mt-1 font-mono text-xs text-ink-500">Forfait {payment.ticket.username}</p>
-                    ) : null}
+                    <div className="mt-1 text-xs text-ink-500">
+                      <PaymentForfaitDisplay
+                        payment={payment}
+                        viewerRole={user?.role}
+                        className="text-xs"
+                        usernameClassName="mt-0.5 font-mono text-[11px] text-ink-400"
+                      />
+                    </div>
                   </div>
                   <span className={`rounded px-2 py-1 text-xs font-medium ${paymentStatusClass(String(payment.status))}`}>
                     {paymentStatusLabel(String(payment.status))}

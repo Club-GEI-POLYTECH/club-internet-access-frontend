@@ -1,5 +1,8 @@
-import { formatTicketTypeSubtitle } from '@/lib/user-messages'
-import { extractTicketUsernameFromNotes } from '@/lib/normalize-payment-list'
+import {
+  extractTicketUsernameFromNotes,
+  getPaymentForfaitLabel,
+  getPaymentTicketUsername,
+} from '@/lib/normalize-payment-list'
 import type { Payment, UserWithPayments } from '@/types/api'
 
 function normalizeQuery(q: string): string {
@@ -38,8 +41,8 @@ function profileSearchTokens(profile?: string): string[] {
 export function paymentSearchBlob(payment: Payment): string {
   const by = payment.createdBy
   const ticket = payment.ticket
-  const profileLabel = ticket?.profile ? formatTicketTypeSubtitle({ profile: ticket.profile }) : null
-  const usernameFromNotes = extractTicketUsernameFromNotes(payment.notes)
+  const forfaitLabel = getPaymentForfaitLabel(payment)
+  const login = getPaymentTicketUsername(payment)
 
   const chunks: Array<string | undefined> = [
     payment.transactionId,
@@ -50,8 +53,9 @@ export function paymentSearchBlob(payment: Payment): string {
     payment.createdById,
     ticket?.username,
     ticket?.profile,
-    profileLabel ?? undefined,
-    usernameFromNotes,
+    forfaitLabel ?? undefined,
+    login,
+    extractTicketUsernameFromNotes(payment.notes),
     by?.email,
     by?.firstName,
     by?.lastName,
