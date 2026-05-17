@@ -1,6 +1,8 @@
 'use client'
 
-import { Wifi, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
+import { BrandLogo } from '@/components/BrandLogo'
+import { BRAND } from '@/lib/brand'
 import { logger } from '@/lib/logger'
 
 /**
@@ -19,16 +21,14 @@ export default function CaptivePage() {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-500 to-primary-700 px-4">
       <div className="max-w-md w-full animate-scale-in">
         <div className="bg-white rounded-2xl shadow-xl p-8 text-center transition-shadow duration-300 hover:shadow-2xl">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-100 rounded-full mb-6 transition-transform duration-300 hover:scale-110">
-            <Wifi className="h-8 w-8 text-primary-600" />
-          </div>
+          <BrandLogo size="lg" priority className="mx-auto mb-6" />
           
           <h1 className="mb-4 text-3xl font-bold text-ink-900">
             Bienvenue sur le Wi-Fi
           </h1>
           
           <p className="mb-2 text-ink-600">
-            Club Internet Access
+            {BRAND.name}
           </p>
           
           <p className="mb-8 text-sm text-ink-500">

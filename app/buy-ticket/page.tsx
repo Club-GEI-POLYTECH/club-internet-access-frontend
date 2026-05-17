@@ -16,6 +16,8 @@ import {
   Ticket as TicketIcon,
   Ban,
 } from 'lucide-react'
+import { BrandLogo } from '@/components/BrandLogo'
+import { BRAND } from '@/lib/brand'
 import { apiClient } from '@/lib/api-client'
 import { parseApiDecimal } from '@/lib/normalize-ticket-api'
 import { logger } from '@/lib/logger'
@@ -762,12 +764,10 @@ function BuyTicketContent() {
         <header className="relative z-10 border-b border-white/10 bg-white/5 backdrop-blur-xl">
           <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-4 sm:px-6">
             <div className="flex items-center gap-3">
-              <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow-sm">
-                <Wifi className="h-5 w-5" strokeWidth={2.25} />
-              </span>
+              <BrandLogo size="sm" className="h-11 w-11" />
               <div>
                 <h1 className="font-display text-lg font-bold tracking-tight text-white sm:text-xl">Acheter un ticket</h1>
-                <p className="text-xs font-medium text-primary-200/90 sm:text-sm">Compte connecté · Club Internet Access</p>
+                <p className="text-xs font-medium text-primary-200/90 sm:text-sm">Compte connecté · {BRAND.name}</p>
               </div>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -905,14 +905,12 @@ function BuyTicketContent() {
         </div>
 
         <div className="mb-10 text-center">
-          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur-md">
-            <Wifi className="h-8 w-8 text-white" strokeWidth={2.25} />
-          </div>
+          <BrandLogo size="lg" priority className="mx-auto mb-5" />
           <h1 className="font-display text-3xl font-bold text-white sm:text-4xl">
             {ticketType ? ticketType.name : 'Chargement…'}
           </h1>
           <p className="mx-auto mt-3 max-w-xl text-primary-100/90">
-            {ticketType ? ticketType.description : 'Club Internet Access — Université de Kinshasa'}
+            {ticketType ? ticketType.description : `${BRAND.name} — Université de Kinshasa`}
           </p>
         </div>
 

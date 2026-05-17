@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Clock, HardDrive, ShoppingCart, LayoutDashboard, Ticket as TicketIcon, Copy } from 'lucide-react'
+import { Clock, HardDrive, ShoppingCart, LayoutDashboard, Copy } from 'lucide-react'
+import { BrandLogo } from '@/components/BrandLogo'
 import { notify } from '@/lib/notify'
 import { paymentStatusLabel } from '@/lib/user-messages'
 import { useAuth } from '@/contexts/AuthContext'
@@ -129,9 +130,7 @@ export default function MyTicketsPage() {
       <div className="relative z-10 mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12">
         <header className="mb-10 flex flex-col gap-4 border-b border-white/10 pb-8 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-4">
-            <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow-sm">
-              <TicketIcon className="h-7 w-7" strokeWidth={2.25} />
-            </span>
+            <BrandLogo size="sm" className="h-14 w-14 shrink-0" />
             <div>
               <h1 className="font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">Mes tickets</h1>
               <p className="mt-1 max-w-lg text-sm leading-relaxed text-primary-100/90 sm:text-base">

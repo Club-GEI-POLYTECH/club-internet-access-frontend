@@ -13,10 +13,11 @@ import {
   X,
   Ticket,
   ShoppingCart,
-  Sparkles,
   Users,
 } from 'lucide-react'
 import { useState } from 'react'
+import { BrandMark } from '@/components/BrandLogo'
+import { BRAND } from '@/lib/brand'
 
 export default function Layout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth()
@@ -109,15 +110,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         />
         <div className="fixed inset-y-0 left-0 flex w-[min(20rem,88vw)] flex-col border-r border-white/10 bg-ink-950/95 shadow-2xl shadow-ink-950/40 backdrop-blur-xl">
           <div className="flex h-16 items-center justify-between gap-2 border-b border-white/10 px-4">
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-brand text-white shadow-glow-sm">
-                <Sparkles className="h-4 w-4" />
-              </span>
-              <div className="min-w-0">
-                <p className="font-display text-sm font-bold text-white truncate tracking-tight">Club Internet</p>
-                <p className="text-[10px] font-medium uppercase tracking-widest text-primary-300/90">Access</p>
-              </div>
-            </div>
+            <BrandMark size="sm" href="/dashboard" className="min-w-0 flex-1" />
             <button
               type="button"
               onClick={() => setSidebarOpen(false)}
@@ -151,14 +144,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-72 lg:flex-col">
         <div className="flex grow flex-col border-r border-white/10 bg-ink-950 bg-mesh-auth">
-          <div className="flex h-[4.25rem] items-center gap-3 border-b border-white/10 px-5">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow">
-              <Sparkles className="h-5 w-5" />
-            </span>
-            <div>
-              <h1 className="font-display text-lg font-bold tracking-tight text-white">Club Internet</h1>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-primary-300/90">Access · UNIKIN</p>
-            </div>
+          <div className="flex h-[4.25rem] items-center border-b border-white/10 px-5">
+            <BrandMark size="md" href="/dashboard" subtitle={BRAND.tagline} />
           </div>
           <NavList />
           <div className="mt-auto border-t border-white/10 p-4">
@@ -191,7 +178,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <Menu className="h-6 w-6" />
           </button>
           <div className="flex min-w-0 flex-1 items-center justify-between gap-2">
-            <p className="truncate font-display text-sm font-bold text-ink-900">Club Internet Access</p>
+            <BrandMark size="xs" showTitle subtitle="" onDark={false} className="min-w-0 flex-1" />
             <button
               type="button"
               onClick={handleLogout}

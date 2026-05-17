@@ -9,7 +9,9 @@ import { notify } from '@/lib/notify'
 import { getSafeInternalRedirect } from '@/lib/safe-redirect'
 import { AUTH_DASHBOARD_PATH, postAuthRedirectPath } from '@/lib/auth-routes'
 import { getLoginErrorToast, isAuthRateLimitError } from '@/lib/auth-flow-errors'
-import { Wifi, Sparkles, ArrowRight } from 'lucide-react'
+import { Wifi, ArrowRight } from 'lucide-react'
+import { BrandLogo } from '@/components/BrandLogo'
+import { BRAND } from '@/lib/brand'
 
 const RATE_LIMIT_COOLDOWN_SEC = 60
 
@@ -96,9 +98,8 @@ export default function Login() {
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col lg:flex-row">
         {/* Panneau marque */}
         <div className="relative flex flex-1 flex-col justify-center px-8 py-12 lg:px-14 lg:py-16">
-          <div className="mb-8 inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-primary-200 backdrop-blur-md">
-            <Sparkles className="h-3.5 w-3.5 text-primary-300" />
-            Espace sécurisé
+          <div className="mb-8">
+            <BrandLogo size="xl" priority className="drop-shadow-lg" />
           </div>
           <h1 className="font-display text-4xl font-bold leading-tight tracking-tight text-white sm:text-5xl lg:text-[2.75rem] lg:leading-[1.1]">
             Connexion Wi‑Fi
@@ -131,11 +132,9 @@ export default function Login() {
               <div className="pointer-events-none absolute -bottom-12 -left-12 h-32 w-32 rounded-full bg-indigo-400/20 blur-2xl" />
 
               <div className="relative text-center">
-                <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow">
-                  <Wifi className="h-8 w-8" strokeWidth={2} />
-                </div>
+                <BrandLogo size="md" priority className="mx-auto mb-6" />
                 <h2 className="font-display text-2xl font-bold text-ink-900">Bon retour</h2>
-                <p className="mt-2 text-sm text-ink-500">Université de Kinshasa — Club Internet Access</p>
+                <p className="mt-2 text-sm text-ink-500">Université de Kinshasa — {BRAND.name}</p>
               </div>
 
               <form onSubmit={handleSubmit} className="relative mt-8 space-y-5">

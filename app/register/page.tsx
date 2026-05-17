@@ -3,7 +3,9 @@
 import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
-import { UserPlus, Sparkles, Mail } from 'lucide-react'
+import { Mail } from 'lucide-react'
+import { BrandLogo } from '@/components/BrandLogo'
+import { BRAND } from '@/lib/brand'
 import { notify } from '@/lib/notify'
 import { apiClient } from '@/lib/api-client'
 import { useAuth } from '@/contexts/AuthContext'
@@ -159,12 +161,9 @@ function RegisterPageContent() {
       <div className="pointer-events-none absolute right-1/4 top-1/3 h-96 w-96 rounded-full bg-violet-500/15 blur-3xl" />
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col items-center justify-center px-4 py-12 sm:px-8">
-        <div className="mb-8 text-center lg:hidden">
-          <div className="mx-auto mb-3 inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-primary-200">
-            <Sparkles className="h-3 w-3" />
-            Nouveau compte
-          </div>
-          <h1 className="font-display text-2xl font-bold text-white">Club Internet Access</h1>
+        <div className="mb-8 flex flex-col items-center text-center lg:hidden">
+          <BrandLogo size="lg" priority className="mb-4" />
+          <h1 className="font-display text-2xl font-bold text-white">{BRAND.name}</h1>
         </div>
 
         <div className="w-full max-w-lg animate-scale-in">
@@ -172,9 +171,7 @@ function RegisterPageContent() {
             <div className="pointer-events-none absolute -left-16 -bottom-16 h-40 w-40 rounded-full bg-primary-400/20 blur-3xl" />
 
             <div className="relative text-center">
-              <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-brand text-white shadow-glow">
-                <UserPlus className="h-8 w-8" strokeWidth={2} />
-              </div>
+              <BrandLogo size="md" priority className="mx-auto mb-5" />
               <h2 className="font-display text-2xl font-bold text-ink-900">Créer un compte</h2>
               <p className="mt-2 text-sm text-ink-500">
                 <span className="font-semibold text-ink-700">Étape 1 :</span> remplissez le formulaire et cliquez sur{' '}

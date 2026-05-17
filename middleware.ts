@@ -36,6 +36,6 @@ export const config = {
      * - favicon.ico (favicon file)
      * - .well-known (Chrome DevTools, ACME, etc.)
      */
-    '/((?!api|_next/static|_next/image|favicon.ico|\\.well-known).*)',
+    '/((?!api|_next/static|_next/image|favicon\\.ico|favicon\\.png|favicon-16x16\\.png|favicon-32x32\\.png|apple-touch-icon\\.png|android-chrome-192x192\\.png|android-chrome-512x512\\.png|logo\\.png|site\\.webmanifest|\\.well-known).*)',
   ],
 }
